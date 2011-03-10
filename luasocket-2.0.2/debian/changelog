@@ -1,0 +1,79 @@
+luasocket (2.0.2-4) unstable; urgency=low
+
+  * Added patches for buffer_init to make luasockets work with mod_magnet
+
+ -- Tit Petric <tit.petric@monotek.net>  Wed, 09 Mar 2011 03:15:01 +0100
+
+luasocket (2.0.2-3) unstable; urgency=low
+
+  * Renamed luasocket-doc.docs to liblua-socket-doc.docs so that
+    documentation is ipart of the package (Closes: #457891)
+  * Added Vcs-Browser and removed XS-X- from Vcs-Svn
+  * Bumped Standards-Version to 3.7.3
+  * Placed -dev and -doc packages in the right sections
+  * Added documentation to every dpatch patch
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Thu, 27 Dec 2007 02:03:37 +0100
+
+luasocket (2.0.2-2) unstable; urgency=low
+
+  * Renamed -doc package and added a Suggest field in control file
+    (Closes: #449560)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 11 Nov 2007 16:27:57 +0100
+
+luasocket (2.0.2-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Fri, 15 Jun 2007 15:56:08 +0100
+
+luasocket (2.0.1-4) unstable; urgency=low
+
+  * Fixed .pc files that were empty
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Thu, 17 May 2007 12:56:11 +0200
+
+luasocket (2.0.1-3) unstable; urgency=low
+
+  * made control file binNMU safe
+  * Fixed clean target (Closes: #424556)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Wed, 16 May 2007 16:32:46 +0200
+
+luasocket (2.0.1-2) unstable; urgency=low
+
+  * Fixed watch file.
+  * .pc files are now installed in the right place and with the right name
+    (Closes: #411437)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Mon, 19 Feb 2007 16:17:07 +0100
+
+luasocket (2.0.1-1) unstable; urgency=low
+
+  * new upstream release (Closes: #257256)
+  * build for both lua50 and lua5.1
+  * updated to standards 3.7.2
+  * renamed packages for lua50 
+  * New maintainer Enrico Tassi <gareuselesinge@debian.org>
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Thu, 14 Sep 2006 10:54:46 +0200
+
+luasocket (2.0-alpha-2) unstable; urgency=low
+
+  * Oops, build-depend missing an entry. Fool that I am
+
+ -- Daniel Silverstone <dsilvers@debian.org>  Wed, 15 Oct 2003 18:07:33 +0100
+  
+luasocket (2.0-alpha-1) unstable; urgency=low
+
+  * Initial package release
+  * Fixed make system to build shared objects properly
+  * Included an implementation of bin2c to build Luasocket with
+  * Included a nicer loadlib() interface for require.
+    All you have to do is invoke lua50 -lluasocket or
+    alternatively put: require "luasocket"; in your code.
+  * Closes: #176992 which is the request to package luasocket
+
+ -- Daniel Silverstone <dsilvers@debian.org>  Tue, 14 Oct 2003 21:02:26 +0100
+

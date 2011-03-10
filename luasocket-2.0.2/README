@@ -1,0 +1,2 @@
+Theese are patches for luasocket to prefix some exported functions
+with ls_*, because of conflicts with mod_magnet buffer_init().
