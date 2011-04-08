@@ -1,0 +1,12 @@
+A modification of the dtd2html perl script by author Steve Pomeroy
+
+Modifications include:
+
+- css for empty tags (consider them being an error)
+- better formatting for attributes (support different style of DTD ATTLIST)
+- improved spacing in multi-line comments which are not preformatted
+- coloring of @todo text same as empty (to note unfinished documentation / other)
+
+All modifications and scripts are released under the original license.
+
+(c) Tit Petric 2011
