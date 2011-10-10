@@ -1,0 +1,39 @@
+#!/usr/bin/php
+<?php
+
+// fetches torrentz.eu feed results and converts the links to downloadable torrage.com direct links
+// stores the resulting feed in a dropbox account location, so it can be used by other people
+
+$config = parse_ini_file(__FILE__.".ini");
+
+$cache_file = __FILE__.".cache";
+$destination = __FILE__.".xml";
+
+if (!file_exists($cache_file) || filemtime($cache_file) < (time() - 3600)) {
+	$feed = file_get_contents("http://torrentz.eu/feed_verified?q=eztv");
+	if ($feed !== false) {
+		file_put_contents($cache_file, $feed);
+	}
+} else {
+	// did not refresh feed, do not upload to dropbox again
+	die;
+}
+
+if (preg_match_all("/http\:\/\/torrentz\.eu\/([a-f0-9]{40})/sU", $feed, $matches)) {
+	foreach ($matches[0] as $k=>$v) {
+		$feed = str_replace($v, "http://torrage.com/torrent/".strtoupper($matches[1][$k]).".torrent", $feed);
+	}
+}
+
+file_put_contents($destination, $feed);
+
+include 'Dropbox/autoload.php';
+
+$oauth = new Dropbox_OAuth_PEAR($config['consumer_key'], $config['consumer_secret']);
+$dropbox = new Dropbox_API($oauth);
+
+$tokens = $dropbox->getToken($config['dropbox_username'], $config['dropbox_password']); 
+
+$oauth->setToken($tokens);
+
+$dropbox->putFile("Public/eztv_clean.xml", $destination);
