@@ -1,8 +1,9 @@
 #!/usr/bin/php
 <?php
 
-// fetches torrentz.eu feed results and converts the links to downloadable torrage.com direct links
+// fetches torrentz.eu feed results and converts the links to downloadable torcache.net direct links
 // stores the resulting feed in a dropbox account location, so it can be used by other people
+// @todo: since we have a feed, build a magnet-link capable, so we don't rely on torrent files at all
 
 $config = parse_ini_file(__FILE__.".ini");
 
@@ -21,7 +22,7 @@ if (!file_exists($cache_file) || filemtime($cache_file) < (time() - 3600)) {
 
 if (preg_match_all("/http\:\/\/torrentz\.eu\/([a-f0-9]{40})/sU", $feed, $matches)) {
 	foreach ($matches[0] as $k=>$v) {
-		$feed = str_replace($v, "http://torrage.com/torrent/".strtoupper($matches[1][$k]).".torrent", $feed);
+		$feed = str_replace($v, "http://torcache.net/torrent/".strtoupper($matches[1][$k]).".torrent", $feed);
 	}
 }
 
