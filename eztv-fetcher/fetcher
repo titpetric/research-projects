@@ -1,0 +1,97 @@
+#!/usr/bin/php
+<?php
+
+$debug = in_array("debug", $argv);
+
+// destination torrent cache folder
+$destination = dirname(__FILE__)."/downloads/";
+// torrent copy folder (one time copy, watch folder for torrent client)
+$destination_copy = "/home/black/Downloads/Torrents/AutoAdd/";
+
+$notify = array("tit.petric@monotek.net");
+
+// cache rss file
+$file = __FILE__.".xml";
+$config = __FILE__.".ini";
+
+// matching rules
+$matches = array_map("trim", file($config));
+
+foreach ($matches as $k=>$match) {
+	if (trim($match)=='') {
+		unset($matches[$k]);
+		continue;
+	}
+}
+
+$feed = "http://dl.dropbox.com/u/10178556/eztv_clean.xml";
+
+if (!file_exists($file) || filemtime($file) < (time()-3600)) {
+	$contents = @file_get_contents($feed);
+	if ($contents!==false) {
+		file_put_contents($file, $contents);
+	}
+}
+
+$feed_data = simplexml_load_file($file);
+
+$rows = array();
+if (isset($feed_data->channel) && isset($feed_data->channel->item))
+{
+	foreach ($feed_data->channel->item as $item)
+	{
+		$rows[] = array("title"=>(string)$item->title, "link"=>(string)$item->link, "description"=>(string)$item->description);
+	}
+}
+
+// matching
+foreach ($rows as $k=>$row) {
+	$matched = false;
+	foreach ($matches as $match) {
+		if (fnmatch('*'.$match.'*', $row['title'], FNM_CASEFOLD)) {
+			$matched = true;
+			break;
+		}
+	}
+	$rows[$k]['matched'] = $matched;
+}
+
+// fetching
+foreach ($rows as $k=>$row) {
+	if ($debug) {
+		echo $row['title']."\n";
+	}
+	if ($row['matched']) {
+		$basename = basename($row['link']);
+		if (file_exists($destination.$basename)) {
+			if ($debug) {
+				echo $basename." ";
+				echo "OK\n";
+			}
+		} else {
+			if ($debug) {
+				echo "downloading ...\n";
+			}
+			$contents = @file_get_contents($row['link']);
+			if ($contents!==false) {
+				foreach ($notify as $email) {
+					mail($email, "[eztv] Downloading " . $row['title'], $row['title'] . "\n" . $row['description']);
+				}
+				// gzip hack because of torrange forced-gzip contents
+				file_put_contents($destination.$basename.'.gz', $contents);
+				$retval = array();
+				exec("gunzip ".$destination.$basename.".gz", $retval);
+				if (file_exists($destination.$basename.".gz")) {
+					rename($destination.$basename.".gz", $destination.$basename);
+				}
+			}
+			// copy for torrent watch folder
+			if (file_exists($destination.$basename)) {
+				copy($destination.$basename, $destination_copy.$basename);
+			}
+		}
+	}
+	if ($debug) {
+		echo "-----------\n";
+	}
+}
