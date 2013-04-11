@@ -73,7 +73,7 @@ A Promise is defined as a representation of an eventual value returned from the
 single completion of an operation. A promise may be one of three states -
 unfulfilled, fulfilled and failed.
 
-(Promises/A)[http://wiki.commonjs.org/wiki/Promises/A] introduces a proposal
+[Promises/A](http://wiki.commonjs.org/wiki/Promises/A) introduces a proposal
 how to implement promises, which I tweaked to suit my needs. For our purposes,
 I'm using "resolved" as the definitive state between a Promise which is
 unfulfilled or fulfilled. When it comes to failed Promises I prefer using
@@ -82,11 +82,11 @@ dealing with nested promises.
 
 By this, as a Promise I defined an object, with several methods:
 
-`getId` - Each Promise needs to have an ID which is used to resolve it's value
-`get` - Request the value of the promise - override for non batched values
-`resolve(value)` - Set the value of the promise
-`resolveAll(promises)` - The batching function to resolve a list of promises of the same type
-`getPromises()` - Return an array() of nested promisess (ie, children).
+- `getId` - Each Promise needs to have an ID which is used to resolve it's value
+- `get` - Request the value of the promise - override for non batched values
+- `resolve(value)` - Set the value of the promise
+- `resolveAll(promises)` - The batching function to resolve a list of promises of the same type
+- `getPromises()` - Return an array() of nested promisess (ie, children).
 
 Implementing the Promises as described leaves me to pretty much keep the same
 program flow, only encapsulating it in getPromises() calls, returning Promise
