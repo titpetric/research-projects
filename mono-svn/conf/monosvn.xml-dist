@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<monosvn>
+	<settings>
+		<!-- This is the name of the Contact, which will send you email with diff reports -->
+		<from-name>Mono SVN</from-name>
+		<from-email>svn@example.com</from-email>
+		<!-- This is your custom email signature, can also be overriden in templates/monosvn_email.tpl -->
+		<from-team-signature><![CDATA[<b>Monotek</b> Development Team]]></from-team-signature>
+		<!-- Path to your websvn instance with trailing slash -->
+		<websvn>http://path.to/websvn/</websvn>
+		<!-- Where your SVN base folder is located -->
+		<svn-base-dir>/var/svn</svn-base-dir>
+		<!-- Which files should we check for syntax errors? Currently supported only php and xml -->
+		<check-syntax>*.php, *.xml</check-syntax>
+		<!-- Which files should we refuse to commit to subversion -->
+		<ignore-files>*~, *#*, *.tmp, *.bak</ignore-files>
+	</settings>
+	<reports>
+		<!-- send emails based on location filter, * or / matches all commits, leading / are ignored -->
+		<report location="*">
+			<email>svn-commits@example.com</email>
+		</report>
+		<report location="project-one/">
+			<email>project-one-commits@example.com</email>
+		</report>
+		<report location="/project-two/">
+			<email>project-two-commits@example.com</email>
+		</report>
+		<!-- Send emails for specific user commits -->
+		<report user="alice">
+			<email>bob@example.com</email>
+			<email>chris@example.com</email>
+			<email>dave@example.com</email>
+		</report>
+	</reports>
+</monosvn>

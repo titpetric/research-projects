@@ -1,0 +1,62 @@
+MonoSVN
+
+The goal of the MonoSVN project is to send out colorized HTML emails
+with the differences for each commit to Subversion repositories.
+
+Configuration is flexible to allow reporting on huge repositories
+which provide different levels of access to specific sections of
+the repository for authorized users.
+
+It's main features are:
+
+   - E-mail colorized diff files depending on the location
+     in the repository, where the commit was made or depending
+     on the user who made the commit. Emails also link to websvn,
+     to review changes via the websvn application.
+
+   - Lint checking for syntax errors in commited PHP scripts
+     and XML files (configurable in the config, can add new
+     lint checks into include/class.lint.php, can skip lint
+     checking with ".nosyntax" - usefull sometimes)
+
+   - Configurable "blacklist" of files, which can't be added
+     to any location in SVN (for example, temporary files with
+     a standard extension - *.tmp, *.bak, *~, ...)
+
+   - Disallow commits with no commit message
+
+The MonoSVN project uses the MiniTPL project to provide a stylable
+email template, which can be modified based on your preferences.
+
+Setup
+-----
+
+Make sure to set the ownership of the files to the user, which
+runs your dav_svn instance (apache, usually "www-data:www-data").
+If that doesn't work for you, make the templates/cache/ directory
+writable, so the template has a writable compile location.
+
+Copy the file "conf/monosvn.xml-dist" to "conf/monosvn.xml", and
+modify it based on your websvn location and configure the email
+destinations based on rules you want. Most settings should work
+for most people out of the box.
+
+To use, you need to add the following lines to your subversion
+repository hooks/pre-commit and hooks/post-commit scripts.
+
+hooks/post-commit:
+
+    REPOS="$1"
+    REV="$2"
+
+    /[path-to]/php /[path-to]/monosvn.php post-commit "$REPOS" "$REV"
+
+hooks/pre-commit:
+
+    REPOS="$1"
+    TXN="$2"
+
+    /[path-to]/php /[path-to]/monosvn.php pre-commit "$REPOS" "$TXN" || exit 1
+    exit 0
+
+That should be it :)
