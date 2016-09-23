@@ -1,0 +1,4 @@
+#!/bin/bash
+LOCATION=$(pwd)
+DOCKERFILE="clue/textract"
+docker run --rm -it -v $LOCATION:/app -w /app $DOCKERFILE "$@"

@@ -1,0 +1,14 @@
+#!/bin/bash
+PDFS=$(ls *pdf)
+for PDF in $PDFS; do
+	echo $PDF
+	./pdf2html $PDF $PDF.html
+	./html_clean $PDF.html
+	echo -n .
+	perl -pi -e 's/'\''data:[^'\'']+'\''//g' $PDF.html.clean
+	echo -n .
+	perl -pi -e 's/"data:[^"]+"//g' $PDF.html.clean
+	echo -n .
+	./html_parse $PDF.html.clean
+	echo .
+done

@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+var juice = require('juice');
+var fs = require('fs');
+var path = require('path');
+var cheerio = require('cheerio');
+
+var filename = process.argv[2];
+
+var contents = fs.readFileSync(filename, "utf8");
+var contents2 = "" + contents;
+
+var re = /<script\b[^>]*>([\s\S]*?)<\/script>/gm;
+var match;
+while (match = re.exec(contents)) {
+	contents2 = contents2.replace(match[0], repl);
+}
+
+var re = /<style\b[^>]*>([\s\S]*?)<\/style>/gm;
+var cnt = 0;
+while (match = re.exec(contents)) {
+//	console.log("\n==============\n");
+//	console.log(match[0]);
+
+	var repl = '';
+//	if (cnt > 1) {
+		repl = match[0].replace(/^}/gm, '');
+		repl = repl.replace(/}([^ ])/gm, "}\n$1");
+		repl = repl.replace(/^@media[^{]+{/gm, '');
+//	}
+
+	contents2 = contents2.replace(match[0], repl);
+	cnt ++;
+//	console.log(repl);
+}
+
+fs.writeFileSync(filename + ".clean", juice(contents2), "utf8")

@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+var fs = require('fs');
+var path = require('path');
+var cheerio = require('cheerio');
+
+var filename = process.argv[2];
+
+var contents = fs.readFileSync(filename, "utf8");
+var result = contents;
+
+var data = [];
+var $ = cheerio.load(result);
+
+$(".pf").each( function(page_index, page) {
+	$(page).find(".t").each(function(elem_index, elem) {
+		var $elem = $(elem);
+
+		var value = {
+			text: $elem.text(),
+			page: page_index,
+			file: filename,
+			left: Math.round(parseFloat($elem.css("left"))),
+			bottom: Math.round(parseFloat($elem.css("bottom")))
+		};
+
+		data.push(value);
+
+//		console.log(page_index + ": " + $elem.css('left') + "/" + $elem.css('bottom') + " " + $elem.text());
+	});
+});
+
+
+data.sort(function(x, y) {
+	var n;
+	n = x.page - y.page;
+	if (n !== 0) {
+		return n;
+	}
+
+	n = y.bottom - x.bottom;
+	if (n !== 0) {
+		return n;
+	}
+
+	return x.left - y.left;
+});
+
+fs.writeFileSync(filename.replace(".html.clean", '') + ".json", JSON.stringify(data, null, "\t"), "utf8");

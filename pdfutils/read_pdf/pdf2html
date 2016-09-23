@@ -1,0 +1,2 @@
+#!/bin/bash
+docker run -it -v $(pwd):/app -w /app --rm bwits/pdf2htmlex pdf2htmlEX "$@"
