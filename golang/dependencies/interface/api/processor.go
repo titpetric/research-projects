@@ -9,8 +9,8 @@ type Processor struct {
 }
 
 type ProcessorServices interface {
-	GetDatabase(string) *service.Database;
-	GetRedis(string) *service.Redis;
+	GetDatabase(string) *service.Database
+	GetRedis(string) *service.Redis
 }
 
 func (r *Processor) Run(services ProcessorServices) string {

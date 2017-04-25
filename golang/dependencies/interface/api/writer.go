@@ -8,7 +8,7 @@ type Writer struct {
 }
 
 type WriterServices interface {
-	GetRedis(string) *service.Redis;
+	GetRedis(string) *service.Redis
 }
 
 func (r *Writer) Run(services WriterServices) {
