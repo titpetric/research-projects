@@ -144,7 +144,7 @@ The good:
 
 The bad:
 
-1. No lazy loading - can't use lazy loading without resoring back to factories
+1. No lazy loading - can't use lazy loading without resorting back to factories
 2. Low verbosity but significantly increasing with number of handlers,
 3. Time sink during changes in development
 
