@@ -1,0 +1,29 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/facebookgo/inject",
+			"repository": "https://github.com/facebookgo/inject",
+			"vcs": "git",
+			"revision": "cc1aa653e50f6a9893bcaef89e673e5b24e1e97b",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/facebookgo/structtag",
+			"repository": "https://github.com/facebookgo/structtag",
+			"vcs": "git",
+			"revision": "217e25fb96916cc60332e399c9aa63f5c422ceed",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/stephanos/inject",
+			"repository": "https://github.com/stephanos/inject",
+			"vcs": "git",
+			"revision": "41a5f1d08b61166be153173c0b6a6195d11596a8",
+			"branch": "master",
+			"notests": true
+		}
+	]
+}

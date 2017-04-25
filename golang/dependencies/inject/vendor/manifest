@@ -1,0 +1,13 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/stephanos/inject",
+			"repository": "https://github.com/stephanos/inject",
+			"vcs": "git",
+			"revision": "41a5f1d08b61166be153173c0b6a6195d11596a8",
+			"branch": "master",
+			"notests": true
+		}
+	]
+}
