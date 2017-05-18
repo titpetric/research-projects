@@ -1,4 +1,12 @@
 #!/bin/bash
+echo "Landscape"
+docker run --rm -v $(pwd):/app -w /app titpetric/webshot-cli --window-size=1200/628 --render-delay=200 landscape.html landscape.png
+echo "Title"
 docker run --rm -v $(pwd):/app -w /app titpetric/webshot-cli --window-size=2550/3300 --render-delay=200 title_page.html title_page.png
+echo "Square"
+docker run --rm -v $(pwd):/app -w /app titpetric/webshot-cli --window-size=400/400 --render-delay=200 square.html square.png
+
 convert title_page.png title_page.jpg
-rm title_page.png
+convert landscape.png landscape.jpg
+convert square.png square.jpg
+rm *png

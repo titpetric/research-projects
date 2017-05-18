@@ -15,10 +15,10 @@ body {
 
 .book-header {
 	//zoom: 0.2;
-	width: 2550px;
-	height: 3300px;
-	background: url(https://source.unsplash.com/05nD5VT-714) 50% 50% no-repeat;
-	background-size: cover;
+	width: 1200px;
+	height: 628px;
+	background: url(https://source.unsplash.com/05nD5VT-714/1200x828) 50% 50% no-repeat;
+	background-size: initial;
 	position: relative;
 }
 
@@ -28,12 +28,12 @@ footer {
 	left: 0;
 	right: 0;
 	width: 100%;
-	height: 600px;
-	background: #999;
+	height: 100px;
+	#background: #999;
 }
 
 article {
-	padding-top: 900px;
+	padding-top: 100px;
 }
 
 h1, h2 {
@@ -44,14 +44,14 @@ h1, h2 {
 	text-align: center;
 }
 h1 {
-	font-size: 180px;
+	font-size: 72px;
 	line-height: 1;
 	margin: 0;
 	text-shadow: 0 0 1em #000, 0 0 1em #000;
 }
 h2 {
 	color: rgba(255,255,255,0.8);
-	font-size: 120px;
+	font-size: 60px;
 	margin: 0;
 	margin-top: 0.2em;
 }
@@ -61,8 +61,8 @@ h2 b {
 .contents * {
 	font-family: Cabin;
 	font-weight: bold;
-	font-size: 80px;
-	color: #251010;
+	font-size: 30px;
+	color: #eee;
 }
 .contents {
 	position: absolute;
@@ -72,13 +72,17 @@ h2 b {
 }
 .contents div {
 	position: absolute;
-	bottom: 100px;
+	bottom: 30px;
 }
 .contents .left {
 	left: 100px;
+	display: none;
 }
 .contents .right {
-	right: 100px;
+	//right: 100px;
+	display: block;
+	width: 100%;
+	text-align: center;
 }
 </style>
 </head>
