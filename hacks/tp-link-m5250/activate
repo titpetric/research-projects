@@ -1,2 +1,4 @@
 #!/bin/bash
-./send-sms.php 13636 a
+./send-sms.php 13636 internet dan
+sleep 10
+./send-sms.php 13636 da
