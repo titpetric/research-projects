@@ -1,0 +1,5 @@
+#!/bin/bash
+go test -run=xxx -bench=BenchmarkStringJoin2B$ -cpuprofile profile_2b.out
+go test -run=xxx -bench=BenchmarkStringJoin2$ -cpuprofile profile_2.out
+go tool pprof -svg profile_2b.out > profile_2b.svg
+go tool pprof -svg profile_2.out > profile_2.svg

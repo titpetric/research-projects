@@ -1,0 +1,2 @@
+#!/bin/bash
+go tool pprof -svg profile_cpu.out > profile_cpu.svg

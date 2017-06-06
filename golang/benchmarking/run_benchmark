@@ -1,0 +1,2 @@
+#!/bin/bash
+go test -run=xxx -bench=. -cpuprofile profile_cpu.out
