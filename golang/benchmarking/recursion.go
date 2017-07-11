@@ -4,7 +4,6 @@ func recursive1(count int64) int64 {
 	if count <= 0 {
 		return 0
 	}
-
 	return recursive1(count-1) + 1
 }
 
