@@ -11,12 +11,12 @@ type Defer struct {
 func (r *Defer) defer1() {
 	r.Lock()
 	defer r.Unlock()
-	r.value ++
+	r.value++
 }
 
 //go:noinline
 func (r *Defer) defer2() {
 	r.Lock()
-	r.value ++
+	r.value++
 	r.Unlock()
 }
