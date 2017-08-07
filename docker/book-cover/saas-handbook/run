@@ -1,0 +1,23 @@
+#!/bin/bash
+function getSource {
+	if [ ! -f "$2" ]; then
+		wget $1 -O $2
+	fi
+}
+
+getSource https://source.unsplash.com/HN6zb9eBPKQ/1200x828 source_1200x828.jpg
+getSource https://source.unsplash.com/HN6zb9eBPKQ/800x800 source_800x800.jpg
+getSource https://source.unsplash.com/HN6zb9eBPKQ source_original.jpg
+
+echo "Landscape"
+docker run --rm -v $(pwd):/app -w /app titpetric/webshot-cli --window-size=1200/628 --render-delay=200 landscape.html landscape.png
+echo "Title"
+docker run --rm -v $(pwd):/app -w /app titpetric/webshot-cli --window-size=2550/3300 --render-delay=200 title_page.html title_page.png
+echo "Square"
+docker run --rm -v $(pwd):/app -w /app titpetric/webshot-cli --window-size=400/400 --render-delay=200 square.html square.png
+
+echo "Converting to jpg"
+convert landscape.png landscape.jpg
+convert title_page.png title_page.jpg
+convert square.png square.jpg
+rm *png
