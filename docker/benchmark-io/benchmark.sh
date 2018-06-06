@@ -1,0 +1,1 @@
+wrk -t8 -c1000 -d50s -s post.lua http://localhost:8080/api/sign

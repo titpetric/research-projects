@@ -1,0 +1,1 @@
+docker run --name dco -d --restart=always -v $(pwd):/data -p 8080:8080 dco
