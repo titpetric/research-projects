@@ -16,6 +16,9 @@ func main() {
 	}
 
 	for _, filename := range os.Args[1:] {
+		if filename == "-" {
+			continue;
+		}
 		fset := token.NewFileSet()
 		node, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 		if err != nil {
