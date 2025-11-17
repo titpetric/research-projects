@@ -3,8 +3,8 @@
 	"daily_data": [
 		{
 			"date": "2025-11-17",
-			"files_added": 149,
-			"files_removed": 149,
+			"files_added": 170,
+			"files_removed": 7,
 			"lines_added": 5977,
 			"lines_removed": 2074,
 			"commit_count": 50
