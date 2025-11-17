@@ -6,21 +6,21 @@ This report compares statistics across all repositories over time.
 
 ### Cumulative Files Over Time
 
-![Cumulative Files Over Time](chart-cumulative-files.svg)
+![Cumulative Files Over Time](chart-cumulative-files-v2.svg)
 
-[View full chart](chart-cumulative-files.svg)
+[View full chart](chart-cumulative-files-v2.svg)
 
 ### Cumulative Lines Over Time
 
-![Cumulative Lines Over Time](chart-cumulative-lines.svg)
+![Cumulative Lines Over Time](chart-cumulative-lines-v2.svg)
 
-[View full chart](chart-cumulative-lines.svg)
+[View full chart](chart-cumulative-lines-v2.svg)
 
 ### Cumulative Modified Files Over Time
 
-![Cumulative Modified Files Over Time](chart-modified-files.svg)
+![Cumulative Modified Files Over Time](chart-modified-files-v2.svg)
 
-[View full chart](chart-modified-files.svg)
+[View full chart](chart-modified-files-v2.svg)
 
 ## Overall Comparison
 

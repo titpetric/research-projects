@@ -1,19 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
-<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold">Cumulative Files Over Time</text>
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Cumulative Modified Files Over Time</text>
 <g transform="translate(80,130)">
 <line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
 <line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
 <text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0</text>
 <line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
-<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">33</text>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">112</text>
 <line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
-<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">67</text>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">224</text>
 <line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
-<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">100</text>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">336</text>
 <line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
-<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">134</text>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">448</text>
 <line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
-<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">168</text>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">560</text>
 <line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
 <text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 0</text>
 <text x="69" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 1</text>
@@ -31,31 +32,31 @@
 <text x="901" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 13</text>
 <text x="970" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 14</text>
 <text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 15</text>
-<polyline points="0,14 " fill="none" stroke="#4A90E2" stroke-width="3"/>
-<circle cx="0" cy="14" r="4" fill="#4A90E2"/>
-<polyline points="0,312 69,304 138,304 208,304 277,275 346,265 416,241 485,234 554,165 624,275 693,278 762,265 832,265 901,252 970,236 " fill="none" stroke="#50C878" stroke-width="3"/>
-<circle cx="0" cy="312" r="4" fill="#50C878"/>
-<circle cx="69" cy="304" r="4" fill="#50C878"/>
-<circle cx="138" cy="304" r="4" fill="#50C878"/>
-<circle cx="208" cy="304" r="4" fill="#50C878"/>
-<circle cx="277" cy="275" r="4" fill="#50C878"/>
-<circle cx="346" cy="265" r="4" fill="#50C878"/>
-<circle cx="416" cy="241" r="4" fill="#50C878"/>
-<circle cx="485" cy="234" r="4" fill="#50C878"/>
-<circle cx="554" cy="165" r="4" fill="#50C878"/>
-<circle cx="624" cy="275" r="4" fill="#50C878"/>
-<circle cx="693" cy="278" r="4" fill="#50C878"/>
-<circle cx="762" cy="265" r="4" fill="#50C878"/>
-<circle cx="832" cy="265" r="4" fill="#50C878"/>
-<circle cx="901" cy="252" r="4" fill="#50C878"/>
-<circle cx="970" cy="236" r="4" fill="#50C878"/>
-<polyline points="0,336 69,336 138,247 208,137 277,29 346,0 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
-<circle cx="0" cy="336" r="4" fill="#FF6B6B"/>
-<circle cx="69" cy="336" r="4" fill="#FF6B6B"/>
-<circle cx="138" cy="247" r="4" fill="#FF6B6B"/>
-<circle cx="208" cy="137" r="4" fill="#FF6B6B"/>
-<circle cx="277" cy="29" r="4" fill="#FF6B6B"/>
-<circle cx="346" cy="0" r="4" fill="#FF6B6B"/>
+<polyline points="0,323 " fill="none" stroke="#4A90E2" stroke-width="3"/>
+<circle cx="0" cy="323" r="4" fill="#4A90E2"/>
+<polyline points="0,393 69,359 138,357 208,357 277,321 346,286 416,258 485,222 554,129 624,60 693,49 762,29 832,29 901,11 970,0 " fill="none" stroke="#50C878" stroke-width="3"/>
+<circle cx="0" cy="393" r="4" fill="#50C878"/>
+<circle cx="69" cy="359" r="4" fill="#50C878"/>
+<circle cx="138" cy="357" r="4" fill="#50C878"/>
+<circle cx="208" cy="357" r="4" fill="#50C878"/>
+<circle cx="277" cy="321" r="4" fill="#50C878"/>
+<circle cx="346" cy="286" r="4" fill="#50C878"/>
+<circle cx="416" cy="258" r="4" fill="#50C878"/>
+<circle cx="485" cy="222" r="4" fill="#50C878"/>
+<circle cx="554" cy="129" r="4" fill="#50C878"/>
+<circle cx="624" cy="60" r="4" fill="#50C878"/>
+<circle cx="693" cy="49" r="4" fill="#50C878"/>
+<circle cx="762" cy="29" r="4" fill="#50C878"/>
+<circle cx="832" cy="29" r="4" fill="#50C878"/>
+<circle cx="901" cy="11" r="4" fill="#50C878"/>
+<circle cx="970" cy="0" r="4" fill="#50C878"/>
+<polyline points="0,409 69,409 138,323 208,240 277,120 346,103 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
+<circle cx="0" cy="409" r="4" fill="#FF6B6B"/>
+<circle cx="69" cy="409" r="4" fill="#FF6B6B"/>
+<circle cx="138" cy="323" r="4" fill="#FF6B6B"/>
+<circle cx="208" cy="240" r="4" fill="#FF6B6B"/>
+<circle cx="277" cy="120" r="4" fill="#FF6B6B"/>
+<circle cx="346" cy="103" r="4" fill="#FF6B6B"/>
 </g>
 <g transform="translate(500,630)">
 <rect x="0" y="0" width="15" height="15" fill="#4A90E2"/>
