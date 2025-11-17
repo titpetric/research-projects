@@ -1,0 +1,101 @@
+{
+	"repository": "platform",
+	"hourly_data": [
+		{
+			"hour": 0,
+			"commit_count": 0
+		},
+		{
+			"hour": 1,
+			"commit_count": 1
+		},
+		{
+			"hour": 2,
+			"commit_count": 1
+		},
+		{
+			"hour": 3,
+			"commit_count": 0
+		},
+		{
+			"hour": 4,
+			"commit_count": 0
+		},
+		{
+			"hour": 5,
+			"commit_count": 0
+		},
+		{
+			"hour": 6,
+			"commit_count": 0
+		},
+		{
+			"hour": 7,
+			"commit_count": 0
+		},
+		{
+			"hour": 8,
+			"commit_count": 0
+		},
+		{
+			"hour": 9,
+			"commit_count": 3
+		},
+		{
+			"hour": 10,
+			"commit_count": 3
+		},
+		{
+			"hour": 11,
+			"commit_count": 3
+		},
+		{
+			"hour": 12,
+			"commit_count": 7
+		},
+		{
+			"hour": 13,
+			"commit_count": 15
+		},
+		{
+			"hour": 14,
+			"commit_count": 8
+		},
+		{
+			"hour": 15,
+			"commit_count": 2
+		},
+		{
+			"hour": 16,
+			"commit_count": 3
+		},
+		{
+			"hour": 17,
+			"commit_count": 8
+		},
+		{
+			"hour": 18,
+			"commit_count": 15
+		},
+		{
+			"hour": 19,
+			"commit_count": 12
+		},
+		{
+			"hour": 20,
+			"commit_count": 4
+		},
+		{
+			"hour": 21,
+			"commit_count": 11
+		},
+		{
+			"hour": 22,
+			"commit_count": 6
+		},
+		{
+			"hour": 23,
+			"commit_count": 4
+		}
+	]
+}

@@ -1,0 +1,551 @@
+[
+	{
+		"hash": "01ae36d83c334928570f31d2f9dfd4d45c175505",
+		"created_at": "2025-11-16T00:53:41+01:00",
+		"message": "Update blurb about playground in readme",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 4,
+		"lines_removed": 0
+	},
+	{
+		"hash": "0001d6e2fb5cd58c09387ddae6422085deaf0fbb",
+		"created_at": "2025-11-16T00:50:31+01:00",
+		"message": "Update playground with new examples",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 174,
+		"lines_removed": 0
+	},
+	{
+		"hash": "4dd719e3ff562c0572b149d074d7a644a57d26ae",
+		"created_at": "2025-11-16T00:40:50+01:00",
+		"message": "Add a rich ButtonToggle example",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 183,
+		"lines_removed": 0
+	},
+	{
+		"hash": "b003b16e363b00a0e40d0e2744a0a1797c96ba41",
+		"created_at": "2025-11-16T00:27:52+01:00",
+		"message": "Implement v-once",
+		"files_added": 9,
+		"files_removed": 9,
+		"lines_added": 222,
+		"lines_removed": 11
+	},
+	{
+		"hash": "f095c45f6832147a26d9b3f2f3498f28d1036e3e",
+		"created_at": "2025-11-16T00:08:29+01:00",
+		"message": "Fix docker build/run",
+		"files_added": 5,
+		"files_removed": 5,
+		"lines_added": 20,
+		"lines_removed": 10
+	},
+	{
+		"hash": "e40bfff27d22e3597ca0e16a1358fcd2dda94fc7",
+		"created_at": "2025-11-15T20:01:00+01:00",
+		"message": "Fix template saving in playground",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 42,
+		"lines_removed": 7
+	},
+	{
+		"hash": "d230f5ac1839fd8c6248eeffdb27e4e45a1fe7ea",
+		"created_at": "2025-11-15T20:00:11+01:00",
+		"message": "Add github styling",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 38,
+		"lines_removed": 1
+	},
+	{
+		"hash": "c5723724e3d9796e45053322bc421cb074b3d979",
+		"created_at": "2025-11-15T19:57:07+01:00",
+		"message": "Add link to vuego github",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 1,
+		"lines_removed": 1
+	},
+	{
+		"hash": "a2e99a6fb677a2c27099df4eae4819de80e8cd76",
+		"created_at": "2025-11-15T19:28:28+01:00",
+		"message": "Create some components through the playground",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 6,
+		"lines_removed": 0
+	},
+	{
+		"hash": "1b39d464e24b3b89172bf5a313c5c63db04e622f",
+		"created_at": "2025-11-15T19:10:05+01:00",
+		"message": "Add v-show, implement object bindings for :style and :class",
+		"files_added": 12,
+		"files_removed": 12,
+		"lines_added": 896,
+		"lines_removed": 24
+	},
+	{
+		"hash": "99f2087857065fdcee4a00ae1e7ec8c9fe680443",
+		"created_at": "2025-11-15T18:25:46+01:00",
+		"message": "Implement v-else-if, v-else, tests",
+		"files_added": 8,
+		"files_removed": 8,
+		"lines_added": 1022,
+		"lines_removed": 23
+	},
+	{
+		"hash": "acba4df58a1a7c97b6c482d4d4a0feca1eac6d00",
+		"created_at": "2025-11-15T17:17:11+01:00",
+		"message": "Provide example data for playground for pages/Forecast",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 0,
+		"lines_removed": 0
+	},
+	{
+		"hash": "85887d869ea0d20fe96c9382422497d9023f1fa3",
+		"created_at": "2025-11-15T16:57:25+01:00",
+		"message": "Move :required error checks out of testdata/pages",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 3,
+		"lines_removed": 3
+	},
+	{
+		"hash": "966f43845bda9c3203fae8e999631666e3e2c41e",
+		"created_at": "2025-11-15T16:53:13+01:00",
+		"message": "Respect :require/required in root template context",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 59,
+		"lines_removed": 2
+	},
+	{
+		"hash": "a2594bacc8f7630dee009ec774c8cdd49ccf95a3",
+		"created_at": "2025-11-15T16:51:13+01:00",
+		"message": "cmd/vuego-playground: quality of life improvements",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 94,
+		"lines_removed": 9
+	},
+	{
+		"hash": "81b225f1a8296170a44ce3dd59dd5c50af85b28d",
+		"created_at": "2025-11-15T16:32:49+01:00",
+		"message": "Iteration of a slice of structs",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 20,
+		"lines_removed": 0
+	},
+	{
+		"hash": "1ba173752d8fa7df90fd834713f28c443300cf9e",
+		"created_at": "2025-11-15T16:32:37+01:00",
+		"message": "More polish for cmd/vuego-playground",
+		"files_added": 3,
+		"files_removed": 3,
+		"lines_added": 50,
+		"lines_removed": 6
+	},
+	{
+		"hash": "13f5fb82a11b375ad1c6c93f62c5c63d19c504b6",
+		"created_at": "2025-11-15T16:15:34+01:00",
+		"message": "Fix gitignore and commit footer component for playground",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 43,
+		"lines_removed": 2
+	},
+	{
+		"hash": "4e512635226f07d38c016d886e325185ca83acb2",
+		"created_at": "2025-11-15T16:09:04+01:00",
+		"message": "Improve playground header style",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 51,
+		"lines_removed": 9
+	},
+	{
+		"hash": "be3ca5da82e009760ad29874b2f268eba92ac4a5",
+		"created_at": "2025-11-15T15:45:25+01:00",
+		"message": "Use tag context to track escaping",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 18,
+		"lines_removed": 6
+	},
+	{
+		"hash": "f681d156d62dc159c2e4652f4781b1b25ccf3cb7",
+		"created_at": "2025-11-15T15:45:01+01:00",
+		"message": "Update docs",
+		"files_added": 3,
+		"files_removed": 3,
+		"lines_added": 60,
+		"lines_removed": 4
+	},
+	{
+		"hash": "3d69103b17fab122f5ed2f2c575f88bbfb9e5b0b",
+		"created_at": "2025-11-15T15:44:51+01:00",
+		"message": "playground: fix footer padding",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 1,
+		"lines_removed": 1
+	},
+	{
+		"hash": "96b2fc1c8b1c2aa7dd2477c340c96724ed8936bc",
+		"created_at": "2025-11-15T15:41:00+01:00",
+		"message": "Trag tack context when parsing for context aware escape",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 46,
+		"lines_removed": 8
+	},
+	{
+		"hash": "f05a82e3876901b6fed9c59edc1aefad91ccac9f",
+		"created_at": "2025-11-15T15:40:32+01:00",
+		"message": "Implement json filter",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 335,
+		"lines_removed": 0
+	},
+	{
+		"hash": "c736b4d83ffffc012be503deee2fa18a6bd4f459",
+		"created_at": "2025-11-15T15:21:20+01:00",
+		"message": "Improve playground marginally, cheatsheet section update",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 17,
+		"lines_removed": 9
+	},
+	{
+		"hash": "21899fc8210077920844cad6d923be89895ee191",
+		"created_at": "2025-11-15T15:07:21+01:00",
+		"message": "Fix text node escaping as html.Node holds decoded value",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 23,
+		"lines_removed": 2
+	},
+	{
+		"hash": "c8f1248113e974bb149ddf9987e3930a6ed7a42c",
+		"created_at": "2025-11-15T14:13:20+01:00",
+		"message": "Include playground taskfile as task docker",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 1,
+		"lines_removed": 0
+	},
+	{
+		"hash": "a4d0fc68466a2cc18a06e05dcf7865be50aa65fc",
+		"created_at": "2025-11-15T14:12:51+01:00",
+		"message": "Add create/save buttons to vuego playground",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 571,
+		"lines_removed": 5
+	},
+	{
+		"hash": "d51fa8306f165ab863b3e24591a3fb12837c1b3b",
+		"created_at": "2025-11-15T14:12:33+01:00",
+		"message": "Update docs",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 102,
+		"lines_removed": 347
+	},
+	{
+		"hash": "5780cc9ed4b7b5f847790d61f0602783abf96c2c",
+		"created_at": "2025-11-15T14:10:23+01:00",
+		"message": "Update docker playground",
+		"files_added": 4,
+		"files_removed": 4,
+		"lines_added": 124,
+		"lines_removed": 0
+	},
+	{
+		"hash": "35fd9bd6e76afff107cbd94c9b2efa5deb24fc89",
+		"created_at": "2025-11-15T12:52:58+01:00",
+		"message": "Implement v-pre",
+		"files_added": 5,
+		"files_removed": 5,
+		"lines_added": 40,
+		"lines_removed": 0
+	},
+	{
+		"hash": "140b65f66d26285e537eef6e2ed595d59b3088ff",
+		"created_at": "2025-11-15T04:05:34+01:00",
+		"message": "Optimize performance",
+		"files_added": 9,
+		"files_removed": 9,
+		"lines_added": 450,
+		"lines_removed": 112
+	},
+	{
+		"hash": "0935c8da0b2f0e18ffb5bbe04e9ed32668876c0d",
+		"created_at": "2025-11-15T03:45:43+01:00",
+		"message": "Improve vuego-playground, customize source folder",
+		"files_added": 15,
+		"files_removed": 15,
+		"lines_added": 895,
+		"lines_removed": 629
+	},
+	{
+		"hash": "95a8ca0aea96d3cc68cf92b6fbba2459203a0dec",
+		"created_at": "2025-11-15T02:29:26+01:00",
+		"message": "performance: optimize interpolation",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 82,
+		"lines_removed": 21
+	},
+	{
+		"hash": "8490bc92e53a3d204c93c123831e5242279f8b0d",
+		"created_at": "2025-11-15T02:20:02+01:00",
+		"message": "Update .gitignore",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 3,
+		"lines_removed": 0
+	},
+	{
+		"hash": "9e72f805dec3ba8d1b0bbe01be34451ecc26d840",
+		"created_at": "2025-11-15T01:56:58+01:00",
+		"message": "Implement allocation optimisations",
+		"files_added": 3,
+		"files_removed": 3,
+		"lines_added": 81,
+		"lines_removed": 16
+	},
+	{
+		"hash": "ea7b1d54eb0766e94cb92bde843040be71eaf773",
+		"created_at": "2025-11-15T01:27:39+01:00",
+		"message": "Increase testing standards, test coverage",
+		"files_added": 28,
+		"files_removed": 28,
+		"lines_added": 1323,
+		"lines_removed": 410
+	},
+	{
+		"hash": "c5bfb2ce1c067261018694cf78c6b5ea494461bb",
+		"created_at": "2025-11-15T00:51:12+01:00",
+		"message": "Enable passing structs into vuego",
+		"files_added": 17,
+		"files_removed": 17,
+		"lines_added": 1583,
+		"lines_removed": 284
+	},
+	{
+		"hash": "22d01ff926b401d3b374177f0a4d5296eed6b2fd",
+		"created_at": "2025-11-14T23:55:32+01:00",
+		"message": "Updated coverage",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 9,
+		"lines_removed": 12
+	},
+	{
+		"hash": "071d2ec90a123bca29ef548be8620eadc0381c7f",
+		"created_at": "2025-11-14T23:53:44+01:00",
+		"message": "Move utilities to internal/helpers",
+		"files_added": 7,
+		"files_removed": 7,
+		"lines_added": 121,
+		"lines_removed": 116
+	},
+	{
+		"hash": "d49b5a60689ba1c91f80c575957c65fc8c64c81a",
+		"created_at": "2025-11-14T23:45:20+01:00",
+		"message": "Enable passing a typed value to Render/RenderFragment",
+		"files_added": 8,
+		"files_removed": 8,
+		"lines_added": 927,
+		"lines_removed": 14
+	},
+	{
+		"hash": "d217438fbe4a8956bbb6b3b7600257c83d9a6a73",
+		"created_at": "2025-11-14T22:58:08+01:00",
+		"message": "Add more coverage to expressions in interpolation, ternary ops",
+		"files_added": 12,
+		"files_removed": 12,
+		"lines_added": 576,
+		"lines_removed": 138
+	},
+	{
+		"hash": "8e40e997faa351bf86ab5adf520331ac7cb57f78",
+		"created_at": "2025-11-14T21:40:09+01:00",
+		"message": "Add complex expression support",
+		"files_added": 11,
+		"files_removed": 11,
+		"lines_added": 685,
+		"lines_removed": 33
+	},
+	{
+		"hash": "4c8effa058f36c4914ec8e26297469c346602c9f",
+		"created_at": "2025-11-14T20:50:00+01:00",
+		"message": "We're not lightweight",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 1,
+		"lines_removed": 1
+	},
+	{
+		"hash": "0fae4ce20364b1387eed41aab7b1d80a6a2e7020",
+		"created_at": "2025-11-14T20:49:26+01:00",
+		"message": "Add mdox:fmt to default target to keep docs consistent",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 1,
+		"lines_removed": 0
+	},
+	{
+		"hash": "b1b46bbdffebdefd8bfbe8ceaf71890d42331844",
+		"created_at": "2025-11-14T20:47:29+01:00",
+		"message": "Update vuego to be concurrency safe",
+		"files_added": 18,
+		"files_removed": 18,
+		"lines_added": 2419,
+		"lines_removed": 75
+	},
+	{
+		"hash": "5ccd00d855050b21b7eee2a8af1c5352181125e3",
+		"created_at": "2025-11-14T20:47:20+01:00",
+		"message": "Add testdata",
+		"files_added": 6,
+		"files_removed": 6,
+		"lines_added": 208,
+		"lines_removed": 0
+	},
+	{
+		"hash": "07f135b7bf332dfc36cd805564d76f3183a816ed",
+		"created_at": "2025-11-14T20:42:45+01:00",
+		"message": "Add vuego playground",
+		"files_added": 3,
+		"files_removed": 3,
+		"lines_added": 718,
+		"lines_removed": 0
+	},
+	{
+		"hash": "7d6db4fb5560722ecdc95b0219fc47de84fb9e52",
+		"created_at": "2025-11-14T20:41:21+01:00",
+		"message": "Add mdox and vale to format docs",
+		"files_added": 24,
+		"files_removed": 24,
+		"lines_added": 1874,
+		"lines_removed": 299
+	},
+	{
+		"hash": "0ecd103ac2ea041e52f02ba5584109878ee43d9c",
+		"created_at": "2025-11-14T20:38:43+01:00",
+		"message": "Update docs",
+		"files_added": 8,
+		"files_removed": 8,
+		"lines_added": 863,
+		"lines_removed": 66
+	},
+	{
+		"hash": "559daeffd0b2c9ba2533eb507bed400d7987aa91",
+		"created_at": "2025-11-14T09:40:31+01:00",
+		"message": "Add a test of attribute escaping",
+		"files_added": 5,
+		"files_removed": 5,
+		"lines_added": 49,
+		"lines_removed": 16
+	},
+	{
+		"hash": "995353f2c458a0938e65485c43b0e49cc73e6190",
+		"created_at": "2025-11-13T23:23:40+01:00",
+		"message": "Add license",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 22,
+		"lines_removed": 0
+	},
+	{
+		"hash": "944a27dafeed11e464e0a75c6dd4916aa9ea6f49",
+		"created_at": "2025-11-13T23:21:17+01:00",
+		"message": "Add helpers, update docs",
+		"files_added": 6,
+		"files_removed": 6,
+		"lines_added": 690,
+		"lines_removed": 1
+	},
+	{
+		"hash": "9a5b411a0466ba856460fa65ecfd0c90a98eba4f",
+		"created_at": "2025-11-13T23:17:44+01:00",
+		"message": "Move utilities to internal/helpers, encourage black box tests, docs updates",
+		"files_added": 14,
+		"files_removed": 14,
+		"lines_added": 135,
+		"lines_removed": 394
+	},
+	{
+		"hash": "7334747a9484116d2259e55d058b95e7ccfc475c",
+		"created_at": "2025-11-13T22:48:02+01:00",
+		"message": "Add badges",
+		"files_added": 1,
+		"files_removed": 1,
+		"lines_added": 3,
+		"lines_removed": 0
+	},
+	{
+		"hash": "238bae6591d23f00694e7409be997a964de29ef0",
+		"created_at": "2025-11-13T22:45:27+01:00",
+		"message": "Cover the stack to meet coverage",
+		"files_added": 2,
+		"files_removed": 2,
+		"lines_added": 482,
+		"lines_removed": 8
+	},
+	{
+		"hash": "4580d58798d9ec0ad50526b08a99f0be05586104",
+		"created_at": "2025-11-13T22:42:27+01:00",
+		"message": "Add AGENTS.md with some conventions, taskfile update, structure cleanup, added tests",
+		"files_added": 15,
+		"files_removed": 15,
+		"lines_added": 743,
+		"lines_removed": 182
+	},
+	{
+		"hash": "3f80809ea74abe0158812347ef4e305fc7fef6cd",
+		"created_at": "2025-11-13T22:08:04+01:00",
+		"message": "Add boolean negation with v-if",
+		"files_added": 5,
+		"files_removed": 5,
+		"lines_added": 92,
+		"lines_removed": 7
+	},
+	{
+		"hash": "6250d75a1318e9a14781c68e272b2a5954e5a946",
+		"created_at": "2025-11-13T21:55:00+01:00",
+		"message": "Implement template tag evaluation, update readme and docs",
+		"files_added": 13,
+		"files_removed": 13,
+		"lines_added": 1313,
+		"lines_removed": 131
+	},
+	{
+		"hash": "6a9b7eab071c026d968a4c09469deaa8fd51f799",
+		"created_at": "2025-11-13T19:26:47+01:00",
+		"message": "Rewrite vuego, add components",
+		"files_added": 52,
+		"files_removed": 52,
+		"lines_added": 743,
+		"lines_removed": 556
+	},
+	{
+		"hash": "4e19185c4bf0f8c9eb4a38c74568bd14c32f8eb7",
+		"created_at": "2025-11-11T18:11:57+01:00",
+		"message": "import vuego",
+		"files_added": 40,
+		"files_removed": 40,
+		"lines_added": 1453,
+		"lines_removed": 0
+	}
+]

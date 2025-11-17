@@ -1,0 +1,101 @@
+{
+	"repository": "lessgo",
+	"hourly_data": [
+		{
+			"hour": 0,
+			"commit_count": 0
+		},
+		{
+			"hour": 1,
+			"commit_count": 0
+		},
+		{
+			"hour": 2,
+			"commit_count": 0
+		},
+		{
+			"hour": 3,
+			"commit_count": 0
+		},
+		{
+			"hour": 4,
+			"commit_count": 0
+		},
+		{
+			"hour": 5,
+			"commit_count": 0
+		},
+		{
+			"hour": 6,
+			"commit_count": 0
+		},
+		{
+			"hour": 7,
+			"commit_count": 0
+		},
+		{
+			"hour": 8,
+			"commit_count": 0
+		},
+		{
+			"hour": 9,
+			"commit_count": 14
+		},
+		{
+			"hour": 10,
+			"commit_count": 9
+		},
+		{
+			"hour": 11,
+			"commit_count": 9
+		},
+		{
+			"hour": 12,
+			"commit_count": 8
+		},
+		{
+			"hour": 13,
+			"commit_count": 4
+		},
+		{
+			"hour": 14,
+			"commit_count": 4
+		},
+		{
+			"hour": 15,
+			"commit_count": 2
+		},
+		{
+			"hour": 16,
+			"commit_count": 0
+		},
+		{
+			"hour": 17,
+			"commit_count": 0
+		},
+		{
+			"hour": 18,
+			"commit_count": 0
+		},
+		{
+			"hour": 19,
+			"commit_count": 0
+		},
+		{
+			"hour": 20,
+			"commit_count": 0
+		},
+		{
+			"hour": 21,
+			"commit_count": 0
+		},
+		{
+			"hour": 22,
+			"commit_count": 0
+		},
+		{
+			"hour": 23,
+			"commit_count": 0
+		}
+	]
+}

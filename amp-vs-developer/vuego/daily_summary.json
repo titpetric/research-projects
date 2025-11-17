@@ -1,0 +1,45 @@
+{
+	"repository": "vuego",
+	"daily_data": [
+		{
+			"date": "2025-11-11",
+			"files_added": 40,
+			"files_removed": 40,
+			"lines_added": 1453,
+			"lines_removed": 0,
+			"commit_count": 1
+		},
+		{
+			"date": "2025-11-13",
+			"files_added": 109,
+			"files_removed": 109,
+			"lines_added": 4223,
+			"lines_removed": 1279,
+			"commit_count": 9
+		},
+		{
+			"date": "2025-11-14",
+			"files_added": 106,
+			"files_removed": 106,
+			"lines_added": 8451,
+			"lines_removed": 770,
+			"commit_count": 13
+		},
+		{
+			"date": "2025-11-15",
+			"files_added": 153,
+			"files_removed": 153,
+			"lines_added": 8080,
+			"lines_removed": 1941,
+			"commit_count": 33
+		},
+		{
+			"date": "2025-11-16",
+			"files_added": 21,
+			"files_removed": 21,
+			"lines_added": 603,
+			"lines_removed": 21,
+			"commit_count": 5
+		}
+	]
+}
