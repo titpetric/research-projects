@@ -22,20 +22,26 @@ This report compares statistics across all repositories over time.
 
 [View full chart](chart-modified-files-v2.svg)
 
+### Code Churn Over Time
+
+![Code Churn Over Time](chart-code-churn-v2.svg)
+
+[View full chart](chart-code-churn-v2.svg)
+
 ## Overall Comparison
 
-| Repository | Total Active Days | Total Commits | Total Files Added | Total Files Removed | Total Lines Added | Total Lines Removed | Net Files | Net Lines |
-|------------|-------------------|---------------|------------------|---------------------|-------------------|---------------------|-----------|----------|
-| lessgo | 1 | 50 | 170 | 7 | 5977 | 2074 | 163 | 3903 |
-| platform | 13 | 106 | 144 | 66 | 8750 | 4658 | 78 | 4092 |
-| vuego | 5 | 61 | 174 | 6 | 22810 | 4011 | 168 | 18799 |
+| Repository | Total Active Days | Total Commits | Total Files Added | Total Files Removed | Total Lines Added | Total Lines Removed | Net Files | Net Lines | Code Churn |
+|------------|-------------------|---------------|------------------|---------------------|-------------------|---------------------|-----------|----------|------------|
+| lessgo | 1 | 50 | 170 | 7 | 5977 | 2074 | 163 | 3903 | 25.8% |
+| platform | 13 | 106 | 144 | 66 | 8750 | 4658 | 78 | 4092 | 34.7% |
+| vuego | 5 | 61 | 174 | 6 | 22810 | 4011 | 168 | 18799 | 15.0% |
 
 ## Daily Comparison Across Repositories
 
 ### Commits Over Time
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 10 | 0 | |
 | 2025-10-26 | 0 | 12 | 0 | |
 | 2025-10-27 | 0 | 2 | 0 | |
@@ -59,7 +65,7 @@ This report compares statistics across all repositories over time.
 ### Files Added Over Time
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 49 | 0 | |
 | 2025-10-26 | 0 | 4 | 0 | |
 | 2025-10-27 | 0 | 0 | 0 | |
@@ -83,7 +89,7 @@ This report compares statistics across all repositories over time.
 ### Files Removed Over Time
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 0 | 0 | |
 | 2025-10-26 | 0 | 1 | 0 | |
 | 2025-10-27 | 0 | 0 | 0 | |
@@ -107,7 +113,7 @@ This report compares statistics across all repositories over time.
 ### Lines Added Over Time
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 2154 | 0 | |
 | 2025-10-26 | 0 | 351 | 0 | |
 | 2025-10-27 | 0 | 10 | 0 | |
@@ -131,7 +137,7 @@ This report compares statistics across all repositories over time.
 ### Lines Removed Over Time
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 51 | 0 | |
 | 2025-10-26 | 0 | 158 | 0 | |
 | 2025-10-27 | 0 | 8 | 0 | |
@@ -157,7 +163,7 @@ This report compares statistics across all repositories over time.
 ### Cumulative Files (Added - Removed)
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 49 | 0 | |
 | 2025-10-26 | 0 | 52 | 0 | |
 | 2025-10-27 | 0 | 52 | 0 | |
@@ -181,7 +187,7 @@ This report compares statistics across all repositories over time.
 ### Cumulative Lines (Added - Removed)
 
 | Date | lessgo | platform | vuego | |
-|------|------|------|------||
+|------|------|------|------|------|
 | 2025-10-25 | 0 | 2103 | 0 | |
 | 2025-10-26 | 0 | 2296 | 0 | |
 | 2025-10-27 | 0 | 2298 | 0 | |
