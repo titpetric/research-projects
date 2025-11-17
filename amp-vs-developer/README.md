@@ -6,41 +6,41 @@ This report compares statistics across all repositories over time.
 
 ### Cumulative Files Over Time
 
-![Cumulative Files Over Time](chart-cumulative-files-v2.svg)
+![Cumulative Files Over Time](chart-cumulative-files-v3.svg)
 
-[View full chart](chart-cumulative-files-v2.svg)
+[View full chart](chart-cumulative-files-v3.svg)
 
 ### Cumulative Lines Over Time
 
-![Cumulative Lines Over Time](chart-cumulative-lines-v2.svg)
+![Cumulative Lines Over Time](chart-cumulative-lines-v3.svg)
 
-[View full chart](chart-cumulative-lines-v2.svg)
+[View full chart](chart-cumulative-lines-v3.svg)
 
 ### Cumulative Modified Files Over Time
 
-![Cumulative Modified Files Over Time](chart-modified-files-v2.svg)
+![Cumulative Modified Files Over Time](chart-modified-files-v3.svg)
 
-[View full chart](chart-modified-files-v2.svg)
+[View full chart](chart-modified-files-v3.svg)
 
 ### Code Churn Over Time
 
-![Code Churn Over Time](chart-code-churn-v2.svg)
+![Code Churn Over Time](chart-code-churn-v3.svg)
 
-[View full chart](chart-code-churn-v2.svg)
+[View full chart](chart-code-churn-v3.svg)
 
 ### Test Ratio Over Time
 
-![Test Ratio Over Time](chart-test-ratio-v2.svg)
+![Test Ratio Over Time](chart-test-ratio-v3.svg)
 
-[View full chart](chart-test-ratio-v2.svg)
+[View full chart](chart-test-ratio-v3.svg)
 
 ## Overall Comparison
 
 | Repository | Total Active Days | Total Commits | Total Files Added | Total Files Removed | Total Lines Added | Total Lines Removed | Net Files | Net Lines | Code Churn | Test Ratio |
 |------------|-------------------|---------------|------------------|---------------------|-------------------|---------------------|-----------|----------|------------|------------|
-| lessgo | 1 | 50 | 170 | 7 | 5977 | 2074 | 163 | 3903 | 25.8% | 1.2% |
-| platform | 13 | 106 | 144 | 66 | 8750 | 4658 | 78 | 4092 | 34.7% | 3.8% |
-| vuego | 5 | 61 | 174 | 6 | 22810 | 4011 | 168 | 18799 | 15.0% | 1.2% |
+| lessgo | 1 | 50 | 170 | 7 | 5977 | 2074 | 163 | 3903 | 25.8% | 17.6% |
+| platform | 13 | 106 | 144 | 66 | 8750 | 4658 | 78 | 4092 | 34.7% | 38.3% |
+| vuego | 5 | 61 | 174 | 6 | 22810 | 4011 | 168 | 18799 | 15.0% | 55.3% |
 
 ## Daily Comparison Across Repositories
 
@@ -164,6 +164,30 @@ This report compares statistics across all repositories over time.
 | 2025-11-16 | 0 | 0 | 21 | 
 | 2025-11-17 | 2074 | 0 | 0 | 
 
+### Test Ratio Over Time
+
+| Date | lessgo | platform | vuego | 
+|------|------|------|------|
+| 2025-10-25 | - | 9.1% | - | 
+| 2025-10-26 | - | 8.3% | - | 
+| 2025-10-27 | - | 8.3% | - | 
+| 2025-10-29 | - | 6.5% | - | 
+| 2025-10-30 | - | 4.1% | - | 
+| 2025-10-31 | - | 4.2% | - | 
+| 2025-11-01 | - | 5.9% | - | 
+| 2025-11-02 | - | 29.3% | - | 
+| 2025-11-03 | - | 34.9% | - | 
+| 2025-11-04 | - | 35.7% | - | 
+| 2025-11-05 | - | 37.8% | - | 
+| 2025-11-07 | - | 38.3% | - | 
+| 2025-11-08 | - | 38.3% | - | 
+| 2025-11-11 | - | - | 28.6% | 
+| 2025-11-13 | - | - | 23.5% | 
+| 2025-11-14 | - | - | 33.3% | 
+| 2025-11-15 | - | - | 54.3% | 
+| 2025-11-16 | - | - | 55.3% | 
+| 2025-11-17 | 17.6% | - | - | 
+
 ## Cumulative Statistics Over Time
 
 ### Cumulative Files (Added - Removed)
@@ -218,23 +242,23 @@ This report compares statistics across all repositories over time.
 
 | Date | lessgo | platform | vuego | 
 |------|------|------|------|
-| 2025-10-25 | - | 6.1% | - | 
-| 2025-10-26 | - | 5.8% | - | 
-| 2025-10-27 | - | 5.8% | - | 
-| 2025-10-29 | - | 4.8% | - | 
-| 2025-10-30 | - | 4.5% | - | 
-| 2025-10-31 | - | 3.9% | - | 
-| 2025-11-01 | - | 3.8% | - | 
-| 2025-11-02 | - | 2.9% | - | 
-| 2025-11-03 | - | 4.8% | - | 
-| 2025-11-04 | - | 4.8% | - | 
-| 2025-11-05 | - | 4.5% | - | 
-| 2025-11-07 | - | 4.2% | - | 
-| 2025-11-08 | - | 3.8% | - | 
-| 2025-11-11 | - | - | 5.0% | 
-| 2025-11-13 | - | - | 2.7% | 
-| 2025-11-14 | - | - | 1.7% | 
-| 2025-11-15 | - | - | 1.3% | 
-| 2025-11-16 | - | - | 1.2% | 
-| 2025-11-17 | 1.2% | - | - | 
+| 2025-10-25 | - | 9.1% | - | 
+| 2025-10-26 | - | 8.3% | - | 
+| 2025-10-27 | - | 8.3% | - | 
+| 2025-10-29 | - | 6.5% | - | 
+| 2025-10-30 | - | 4.1% | - | 
+| 2025-10-31 | - | 4.2% | - | 
+| 2025-11-01 | - | 5.9% | - | 
+| 2025-11-02 | - | 29.3% | - | 
+| 2025-11-03 | - | 34.9% | - | 
+| 2025-11-04 | - | 35.7% | - | 
+| 2025-11-05 | - | 37.8% | - | 
+| 2025-11-07 | - | 38.3% | - | 
+| 2025-11-08 | - | 38.3% | - | 
+| 2025-11-11 | - | - | 28.6% | 
+| 2025-11-13 | - | - | 23.5% | 
+| 2025-11-14 | - | - | 33.3% | 
+| 2025-11-15 | - | - | 54.3% | 
+| 2025-11-16 | - | - | 55.3% | 
+| 2025-11-17 | 17.6% | - | - | 
 
