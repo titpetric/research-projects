@@ -16,93 +16,46 @@
 <text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">168</text>
 <line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
 <text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 0</text>
-<text x="90" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 2</text>
-<text x="180" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 4</text>
-<text x="271" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 6</text>
-<text x="361" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 8</text>
-<text x="452" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 10</text>
-<text x="542" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 12</text>
-<text x="633" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 14</text>
-<text x="723" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 16</text>
-<text x="813" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 18</text>
-<text x="904" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 20</text>
-<text x="994" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 22</text>
-<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 23</text>
-<polyline points="0,440 45,440 90,440 135,440 180,440 226,440 271,440 316,440 361,440 406,440 452,440 497,440 542,440 587,440 633,440 678,440 723,440 768,440 813,440 859,440 904,440 949,440 994,440 1040,14 " fill="none" stroke="#4A90E2" stroke-width="3"/>
-<circle cx="0" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="45" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="90" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="135" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="180" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="226" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="271" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="316" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="361" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="406" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="452" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="497" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="542" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="587" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="633" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="678" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="723" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="768" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="813" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="859" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="904" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="949" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="994" cy="440" r="4" fill="#4A90E2"/>
-<circle cx="1040" cy="14" r="4" fill="#4A90E2"/>
-<polyline points="0,312 45,304 90,304 135,304 180,275 226,265 271,241 316,234 361,165 406,275 452,278 497,265 542,265 587,252 633,236 678,236 723,236 768,236 813,236 859,236 904,236 949,236 994,236 1040,236 " fill="none" stroke="#50C878" stroke-width="3"/>
+<text x="69" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 1</text>
+<text x="138" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 2</text>
+<text x="208" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 3</text>
+<text x="277" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 4</text>
+<text x="346" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 5</text>
+<text x="416" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 6</text>
+<text x="485" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 7</text>
+<text x="554" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 8</text>
+<text x="624" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 9</text>
+<text x="693" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 10</text>
+<text x="762" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 11</text>
+<text x="832" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 12</text>
+<text x="901" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 13</text>
+<text x="970" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 14</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">Day 15</text>
+<polyline points="0,14 " fill="none" stroke="#4A90E2" stroke-width="3"/>
+<circle cx="0" cy="14" r="4" fill="#4A90E2"/>
+<polyline points="0,312 69,304 138,304 208,304 277,275 346,265 416,241 485,234 554,165 624,275 693,278 762,265 832,265 901,252 970,236 " fill="none" stroke="#50C878" stroke-width="3"/>
 <circle cx="0" cy="312" r="4" fill="#50C878"/>
-<circle cx="45" cy="304" r="4" fill="#50C878"/>
-<circle cx="90" cy="304" r="4" fill="#50C878"/>
-<circle cx="135" cy="304" r="4" fill="#50C878"/>
-<circle cx="180" cy="275" r="4" fill="#50C878"/>
-<circle cx="226" cy="265" r="4" fill="#50C878"/>
-<circle cx="271" cy="241" r="4" fill="#50C878"/>
-<circle cx="316" cy="234" r="4" fill="#50C878"/>
-<circle cx="361" cy="165" r="4" fill="#50C878"/>
-<circle cx="406" cy="275" r="4" fill="#50C878"/>
-<circle cx="452" cy="278" r="4" fill="#50C878"/>
-<circle cx="497" cy="265" r="4" fill="#50C878"/>
-<circle cx="542" cy="265" r="4" fill="#50C878"/>
-<circle cx="587" cy="252" r="4" fill="#50C878"/>
-<circle cx="633" cy="236" r="4" fill="#50C878"/>
-<circle cx="678" cy="236" r="4" fill="#50C878"/>
-<circle cx="723" cy="236" r="4" fill="#50C878"/>
-<circle cx="768" cy="236" r="4" fill="#50C878"/>
-<circle cx="813" cy="236" r="4" fill="#50C878"/>
-<circle cx="859" cy="236" r="4" fill="#50C878"/>
-<circle cx="904" cy="236" r="4" fill="#50C878"/>
-<circle cx="949" cy="236" r="4" fill="#50C878"/>
-<circle cx="994" cy="236" r="4" fill="#50C878"/>
-<circle cx="1040" cy="236" r="4" fill="#50C878"/>
-<polyline points="0,440 45,440 90,440 135,440 180,440 226,440 271,440 316,440 361,440 406,440 452,440 497,440 542,440 587,440 633,440 678,440 723,440 768,336 813,336 859,247 904,137 949,29 994,0 1040,0 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
-<circle cx="0" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="45" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="90" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="135" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="180" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="226" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="271" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="316" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="361" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="406" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="452" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="497" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="542" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="587" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="633" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="678" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="723" cy="440" r="4" fill="#FF6B6B"/>
-<circle cx="768" cy="336" r="4" fill="#FF6B6B"/>
-<circle cx="813" cy="336" r="4" fill="#FF6B6B"/>
-<circle cx="859" cy="247" r="4" fill="#FF6B6B"/>
-<circle cx="904" cy="137" r="4" fill="#FF6B6B"/>
-<circle cx="949" cy="29" r="4" fill="#FF6B6B"/>
-<circle cx="994" cy="0" r="4" fill="#FF6B6B"/>
-<circle cx="1040" cy="0" r="4" fill="#FF6B6B"/>
+<circle cx="69" cy="304" r="4" fill="#50C878"/>
+<circle cx="138" cy="304" r="4" fill="#50C878"/>
+<circle cx="208" cy="304" r="4" fill="#50C878"/>
+<circle cx="277" cy="275" r="4" fill="#50C878"/>
+<circle cx="346" cy="265" r="4" fill="#50C878"/>
+<circle cx="416" cy="241" r="4" fill="#50C878"/>
+<circle cx="485" cy="234" r="4" fill="#50C878"/>
+<circle cx="554" cy="165" r="4" fill="#50C878"/>
+<circle cx="624" cy="275" r="4" fill="#50C878"/>
+<circle cx="693" cy="278" r="4" fill="#50C878"/>
+<circle cx="762" cy="265" r="4" fill="#50C878"/>
+<circle cx="832" cy="265" r="4" fill="#50C878"/>
+<circle cx="901" cy="252" r="4" fill="#50C878"/>
+<circle cx="970" cy="236" r="4" fill="#50C878"/>
+<polyline points="0,336 69,336 138,247 208,137 277,29 346,0 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
+<circle cx="0" cy="336" r="4" fill="#FF6B6B"/>
+<circle cx="69" cy="336" r="4" fill="#FF6B6B"/>
+<circle cx="138" cy="247" r="4" fill="#FF6B6B"/>
+<circle cx="208" cy="137" r="4" fill="#FF6B6B"/>
+<circle cx="277" cy="29" r="4" fill="#FF6B6B"/>
+<circle cx="346" cy="0" r="4" fill="#FF6B6B"/>
 </g>
 <g transform="translate(500,630)">
 <rect x="0" y="0" width="15" height="15" fill="#4A90E2"/>

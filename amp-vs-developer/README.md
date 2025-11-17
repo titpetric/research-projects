@@ -24,11 +24,11 @@ This report compares statistics across all repositories over time.
 
 ## Overall Comparison
 
-| Repository | Total Commits | Total Files Added | Total Files Removed | Total Lines Added | Total Lines Removed | Net Files | Net Lines |
-|------------|---------------|------------------|---------------------|-------------------|---------------------|-----------|----------|
-| lessgo | 50 | 170 | 7 | 5977 | 2074 | 163 | 3903 |
-| platform | 106 | 144 | 66 | 8750 | 4658 | 78 | 4092 |
-| vuego | 61 | 174 | 6 | 22810 | 4011 | 168 | 18799 |
+| Repository | Total Active Days | Total Commits | Total Files Added | Total Files Removed | Total Lines Added | Total Lines Removed | Net Files | Net Lines |
+|------------|-------------------|---------------|------------------|---------------------|-------------------|---------------------|-----------|----------|
+| lessgo | 1 | 50 | 170 | 7 | 5977 | 2074 | 163 | 3903 |
+| platform | 13 | 106 | 144 | 66 | 8750 | 4658 | 78 | 4092 |
+| vuego | 5 | 61 | 174 | 6 | 22810 | 4011 | 168 | 18799 |
 
 ## Daily Comparison Across Repositories
 
