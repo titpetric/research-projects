@@ -16,46 +16,43 @@
 <line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
 <text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">100.0%</text>
 <line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
-<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0</text>
-<text x="84" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">4</text>
-<text x="169" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">8</text>
-<text x="254" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">12</text>
-<text x="339" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">16</text>
-<text x="424" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">20</text>
-<text x="509" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">24</text>
-<text x="594" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">28</text>
-<text x="679" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">32</text>
-<text x="764" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">36</text>
-<text x="848" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">40</text>
-<text x="933" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">44</text>
-<text x="1018" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">48</text>
-<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">49</text>
-<polyline points="0,440 21,440 42,440 63,440 84,440 106,440 127,440 148,440 169,440 191,440 212,346 233,440 254,440 275,421 297,389 318,257 339,440 360,313 382,440 403,440 424,440 445,440 466,440 488,440 509,440 530,440 551,440 573,440 594,440 615,440 636,440 657,440 679,356 700,362 721,440 742,440 764,440 785,440 806,440 827,440 848,179 870,343 891,294 912,0 933,440 955,440 976,440 997,440 1018,263 1040,425 " fill="none" stroke="#9B59B6" stroke-width="3"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0.0h</text>
+<text x="104" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0.6h</text>
+<text x="208" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">1.2h</text>
+<text x="312" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">1.8h</text>
+<text x="416" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">2.4h</text>
+<text x="520" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">3.0h</text>
+<text x="624" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">3.6h</text>
+<text x="728" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">4.3h</text>
+<text x="832" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">4.9h</text>
+<text x="936" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">5.5h</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">6.1h</text>
+<polyline points="0,440 1,440 12,440 14,440 26,440 28,440 33,440 34,440 47,440 55,440 56,346 58,440 61,440 102,421 107,389 107,257 117,440 118,313 193,440 233,440 249,440 251,440 254,440 289,440 291,440 315,440 318,440 319,440 328,440 364,440 366,440 378,440 483,356 484,362 569,440 601,440 604,440 605,440 614,440 617,440 643,179 685,343 702,294 720,0 839,440 842,440 846,440 860,440 990,263 1040,425 " fill="none" stroke="#9B59B6" stroke-width="3"/>
 <circle cx="0" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="42" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="84" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="127" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="169" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="212" cy="346" r="4" fill="#9B59B6"/>
+<circle cx="12" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="26" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="33" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="47" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="56" cy="346" r="4" fill="#9B59B6"/>
+<circle cx="61" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="107" cy="389" r="4" fill="#9B59B6"/>
+<circle cx="117" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="193" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="249" cy="440" r="4" fill="#9B59B6"/>
 <circle cx="254" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="297" cy="389" r="4" fill="#9B59B6"/>
-<circle cx="339" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="382" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="424" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="466" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="509" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="551" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="594" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="636" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="679" cy="356" r="4" fill="#9B59B6"/>
-<circle cx="721" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="764" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="806" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="848" cy="179" r="4" fill="#9B59B6"/>
-<circle cx="891" cy="294" r="4" fill="#9B59B6"/>
-<circle cx="933" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="976" cy="440" r="4" fill="#9B59B6"/>
-<circle cx="1018" cy="263" r="4" fill="#9B59B6"/>
+<circle cx="291" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="318" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="328" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="366" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="483" cy="356" r="4" fill="#9B59B6"/>
+<circle cx="569" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="604" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="614" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="643" cy="179" r="4" fill="#9B59B6"/>
+<circle cx="702" cy="294" r="4" fill="#9B59B6"/>
+<circle cx="839" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="846" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="990" cy="263" r="4" fill="#9B59B6"/>
 <circle cx="1040" cy="425" r="4" fill="#9B59B6"/>
 </g>
 </svg>

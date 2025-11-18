@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Cumulative Files Over Time (Raw Commits)</text>
+<g transform="translate(80,130)">
+<line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
+<line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
+<text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0</text>
+<line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">33</text>
+<line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">67</text>
+<line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">100</text>
+<line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">134</text>
+<line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">168</text>
+<line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0.0h</text>
+<text x="104" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">1.4d</text>
+<text x="208" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">2.8d</text>
+<text x="312" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">4.3d</text>
+<text x="416" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">5.7d</text>
+<text x="520" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">7.1d</text>
+<text x="624" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">8.5d</text>
+<text x="728" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">9.9d</text>
+<text x="832" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">11.3d</text>
+<text x="936" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">12.8d</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">14.2d</text>
+<polyline points="0,388 0,385 0,385 0,385 0,383 0,378 0,378 0,372 0,367 0,359 1,359 1,359 1,351 1,333 1,333 1,333 2,328 2,328 3,286 4,283 4,278 4,278 4,278 5,273 5,268 5,262 5,257 5,257 5,255 6,252 6,244 6,239 8,37 8,37 10,37 10,37 10,37 10,37 10,37 11,37 11,40 12,40 12,40 12,42 15,42 15,42 15,42 15,42 17,14 18,14 " fill="none" stroke="#4A90E2" stroke-width="3"/>
+<circle cx="0" cy="388" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="385" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="383" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="378" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="367" r="4" fill="#4A90E2"/>
+<circle cx="1" cy="359" r="4" fill="#4A90E2"/>
+<circle cx="1" cy="351" r="4" fill="#4A90E2"/>
+<circle cx="1" cy="333" r="4" fill="#4A90E2"/>
+<circle cx="2" cy="328" r="4" fill="#4A90E2"/>
+<circle cx="3" cy="286" r="4" fill="#4A90E2"/>
+<circle cx="4" cy="278" r="4" fill="#4A90E2"/>
+<circle cx="4" cy="278" r="4" fill="#4A90E2"/>
+<circle cx="5" cy="268" r="4" fill="#4A90E2"/>
+<circle cx="5" cy="257" r="4" fill="#4A90E2"/>
+<circle cx="5" cy="255" r="4" fill="#4A90E2"/>
+<circle cx="6" cy="244" r="4" fill="#4A90E2"/>
+<circle cx="8" cy="37" r="4" fill="#4A90E2"/>
+<circle cx="10" cy="37" r="4" fill="#4A90E2"/>
+<circle cx="10" cy="37" r="4" fill="#4A90E2"/>
+<circle cx="10" cy="37" r="4" fill="#4A90E2"/>
+<circle cx="11" cy="40" r="4" fill="#4A90E2"/>
+<circle cx="12" cy="40" r="4" fill="#4A90E2"/>
+<circle cx="15" cy="42" r="4" fill="#4A90E2"/>
+<circle cx="15" cy="42" r="4" fill="#4A90E2"/>
+<circle cx="17" cy="14" r="4" fill="#4A90E2"/>
+<circle cx="18" cy="14" r="4" fill="#4A90E2"/>
+<polyline points="0,320 2,317 17,315 18,315 18,315 18,315 19,315 19,315 20,312 20,312 83,310 83,310 84,310 84,310 86,310 86,307 87,307 88,307 98,304 98,304 101,304 101,304 107,304 111,304 285,289 291,281 291,281 294,281 294,275 294,275 296,275 382,278 383,275 384,275 384,275 389,273 395,265 432,249 453,247 455,241 457,241 510,241 511,241 511,241 511,241 528,241 538,241 538,234 538,234 539,234 542,234 581,231 582,231 582,231 583,226 583,207 585,205 585,202 585,200 585,200 585,200 586,200 587,200 587,200 588,200 588,200 592,200 595,200 598,192 599,192 599,186 600,186 601,181 603,181 604,176 604,176 604,176 604,176 604,176 605,176 609,176 610,173 610,165 650,275 650,275 718,275 719,275 720,281 722,278 724,278 741,278 800,275 800,270 801,270 803,270 803,270 805,265 964,265 966,265 967,257 969,252 969,252 1036,252 1037,239 1039,239 1040,236 " fill="none" stroke="#50C878" stroke-width="3"/>
+<circle cx="0" cy="320" r="4" fill="#50C878"/>
+<circle cx="18" cy="315" r="4" fill="#50C878"/>
+<circle cx="83" cy="310" r="4" fill="#50C878"/>
+<circle cx="86" cy="307" r="4" fill="#50C878"/>
+<circle cx="101" cy="304" r="4" fill="#50C878"/>
+<circle cx="291" cy="281" r="4" fill="#50C878"/>
+<circle cx="296" cy="275" r="4" fill="#50C878"/>
+<circle cx="389" cy="273" r="4" fill="#50C878"/>
+<circle cx="457" cy="241" r="4" fill="#50C878"/>
+<circle cx="528" cy="241" r="4" fill="#50C878"/>
+<circle cx="542" cy="234" r="4" fill="#50C878"/>
+<circle cx="583" cy="207" r="4" fill="#50C878"/>
+<circle cx="585" cy="200" r="4" fill="#50C878"/>
+<circle cx="588" cy="200" r="4" fill="#50C878"/>
+<circle cx="599" cy="186" r="4" fill="#50C878"/>
+<circle cx="604" cy="176" r="4" fill="#50C878"/>
+<circle cx="609" cy="176" r="4" fill="#50C878"/>
+<circle cx="718" cy="275" r="4" fill="#50C878"/>
+<circle cx="741" cy="278" r="4" fill="#50C878"/>
+<circle cx="803" cy="270" r="4" fill="#50C878"/>
+<circle cx="969" cy="252" r="4" fill="#50C878"/>
+<circle cx="1040" cy="236" r="4" fill="#50C878"/>
+<polyline points="0,336 150,310 158,294 158,286 160,260 160,257 160,257 162,262 162,249 162,247 193,247 227,236 227,202 227,194 227,179 227,168 228,168 228,168 230,152 234,150 236,145 237,137 237,137 240,129 242,103 243,103 244,103 245,103 249,71 250,69 277,61 281,50 281,50 281,50 281,50 283,50 284,50 285,50 285,50 285,50 285,50 285,50 287,50 287,48 288,48 288,48 289,48 289,45 289,45 290,45 294,45 296,40 297,29 298,29 298,29 298,29 311,27 312,16 313,11 313,0 313,0 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
+<circle cx="0" cy="336" r="4" fill="#FF6B6B"/>
+<circle cx="158" cy="286" r="4" fill="#FF6B6B"/>
+<circle cx="160" cy="257" r="4" fill="#FF6B6B"/>
+<circle cx="162" cy="247" r="4" fill="#FF6B6B"/>
+<circle cx="227" cy="202" r="4" fill="#FF6B6B"/>
+<circle cx="227" cy="168" r="4" fill="#FF6B6B"/>
+<circle cx="230" cy="152" r="4" fill="#FF6B6B"/>
+<circle cx="237" cy="137" r="4" fill="#FF6B6B"/>
+<circle cx="242" cy="103" r="4" fill="#FF6B6B"/>
+<circle cx="245" cy="103" r="4" fill="#FF6B6B"/>
+<circle cx="277" cy="61" r="4" fill="#FF6B6B"/>
+<circle cx="281" cy="50" r="4" fill="#FF6B6B"/>
+<circle cx="284" cy="50" r="4" fill="#FF6B6B"/>
+<circle cx="285" cy="50" r="4" fill="#FF6B6B"/>
+<circle cx="287" cy="50" r="4" fill="#FF6B6B"/>
+<circle cx="288" cy="48" r="4" fill="#FF6B6B"/>
+<circle cx="289" cy="45" r="4" fill="#FF6B6B"/>
+<circle cx="296" cy="40" r="4" fill="#FF6B6B"/>
+<circle cx="298" cy="29" r="4" fill="#FF6B6B"/>
+<circle cx="312" cy="16" r="4" fill="#FF6B6B"/>
+<circle cx="313" cy="0" r="4" fill="#FF6B6B"/>
+</g>
+<g transform="translate(500,630)">
+<rect x="0" y="0" width="15" height="15" fill="#4A90E2"/>
+<text x="20" y="12" font-family="Arial, sans-serif" font-size="14">lessgo</text>
+<rect x="150" y="0" width="15" height="15" fill="#50C878"/>
+<text x="170" y="12" font-family="Arial, sans-serif" font-size="14">platform</text>
+<rect x="300" y="0" width="15" height="15" fill="#FF6B6B"/>
+<text x="320" y="12" font-family="Arial, sans-serif" font-size="14">vuego</text>
+</g>
+</svg>

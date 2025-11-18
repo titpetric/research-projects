@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Code Churn Over Time (Raw Commits)</text>
+<g transform="translate(80,130)">
+<line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
+<line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
+<text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0.0%</text>
+<line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">20.0%</text>
+<line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">40.0%</text>
+<line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">60.0%</text>
+<line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">80.0%</text>
+<line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">100.0%</text>
+<line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0.0h</text>
+<text x="104" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">1.4d</text>
+<text x="208" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">2.8d</text>
+<text x="312" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">4.3d</text>
+<text x="416" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">5.7d</text>
+<text x="520" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">7.1d</text>
+<text x="624" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">8.5d</text>
+<text x="728" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">9.9d</text>
+<text x="832" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">11.3d</text>
+<text x="936" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">12.8d</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">14.2d</text>
+<polyline points="0,440 0,440 0,440 0,440 0,440 0,440 0,440 0,440 0,440 0,440 1,346 1,440 1,440 1,421 1,389 1,257 2,440 2,313 3,440 4,440 4,440 4,440 4,440 5,440 5,440 5,440 5,440 5,440 5,440 6,440 6,440 6,440 8,356 8,362 10,440 10,440 10,440 10,440 10,440 11,440 11,179 12,343 12,294 12,0 15,440 15,440 15,440 15,440 17,263 18,425 " fill="none" stroke="#4A90E2" stroke-width="3"/>
+<circle cx="0" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="0" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="1" cy="346" r="4" fill="#4A90E2"/>
+<circle cx="1" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="1" cy="389" r="4" fill="#4A90E2"/>
+<circle cx="2" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="3" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="4" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="4" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="5" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="5" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="5" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="6" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="8" cy="356" r="4" fill="#4A90E2"/>
+<circle cx="10" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="10" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="10" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="11" cy="179" r="4" fill="#4A90E2"/>
+<circle cx="12" cy="294" r="4" fill="#4A90E2"/>
+<circle cx="15" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="15" cy="440" r="4" fill="#4A90E2"/>
+<circle cx="17" cy="263" r="4" fill="#4A90E2"/>
+<circle cx="18" cy="425" r="4" fill="#4A90E2"/>
+<polyline points="0,440 2,440 17,304 18,227 18,220 18,367 19,74 19,440 20,256 20,440 83,220 83,308 84,440 84,248 86,373 86,440 87,398 88,193 98,302 98,220 101,363 101,283 107,147 111,343 285,295 291,333 291,220 294,409 294,429 294,0 296,206 382,196 383,440 384,278 384,440 389,378 395,332 432,416 453,236 455,367 457,264 510,372 511,440 511,233 511,305 528,220 538,306 538,290 538,220 539,266 542,269 581,414 582,184 582,147 583,440 583,440 585,294 585,380 585,421 585,440 585,176 586,110 587,315 587,275 588,147 588,118 592,220 595,192 598,395 599,220 599,440 600,231 601,384 603,220 604,253 604,421 604,440 604,440 604,221 605,229 609,252 610,283 610,273 650,72 650,189 718,220 719,252 720,6 722,385 724,220 741,440 800,436 800,440 801,274 803,255 803,358 805,311 964,440 966,440 967,269 969,388 969,204 1036,367 1037,440 1039,220 1040,425 " fill="none" stroke="#50C878" stroke-width="3"/>
+<circle cx="0" cy="440" r="4" fill="#50C878"/>
+<circle cx="18" cy="367" r="4" fill="#50C878"/>
+<circle cx="83" cy="220" r="4" fill="#50C878"/>
+<circle cx="86" cy="440" r="4" fill="#50C878"/>
+<circle cx="101" cy="363" r="4" fill="#50C878"/>
+<circle cx="291" cy="333" r="4" fill="#50C878"/>
+<circle cx="296" cy="206" r="4" fill="#50C878"/>
+<circle cx="389" cy="378" r="4" fill="#50C878"/>
+<circle cx="457" cy="264" r="4" fill="#50C878"/>
+<circle cx="528" cy="220" r="4" fill="#50C878"/>
+<circle cx="542" cy="269" r="4" fill="#50C878"/>
+<circle cx="583" cy="440" r="4" fill="#50C878"/>
+<circle cx="585" cy="176" r="4" fill="#50C878"/>
+<circle cx="588" cy="118" r="4" fill="#50C878"/>
+<circle cx="599" cy="440" r="4" fill="#50C878"/>
+<circle cx="604" cy="421" r="4" fill="#50C878"/>
+<circle cx="609" cy="252" r="4" fill="#50C878"/>
+<circle cx="718" cy="220" r="4" fill="#50C878"/>
+<circle cx="741" cy="440" r="4" fill="#50C878"/>
+<circle cx="803" cy="358" r="4" fill="#50C878"/>
+<circle cx="969" cy="388" r="4" fill="#50C878"/>
+<circle cx="1040" cy="425" r="4" fill="#50C878"/>
+<polyline points="0,440 150,252 158,401 158,409 160,354 160,433 160,440 162,113 162,440 162,440 193,332 227,409 227,380 227,440 227,440 227,427 228,440 228,220 230,420 234,355 236,434 237,225 237,189 240,374 242,336 243,368 244,440 245,351 249,259 250,353 277,440 281,440 281,100 281,437 281,440 283,405 284,288 285,440 285,375 285,220 285,413 285,330 287,374 287,421 288,393 288,440 289,402 289,426 289,220 290,440 294,431 296,429 297,440 298,220 298,429 298,378 311,294 312,420 313,440 313,440 313,440 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
+<circle cx="0" cy="440" r="4" fill="#FF6B6B"/>
+<circle cx="158" cy="409" r="4" fill="#FF6B6B"/>
+<circle cx="160" cy="440" r="4" fill="#FF6B6B"/>
+<circle cx="162" cy="440" r="4" fill="#FF6B6B"/>
+<circle cx="227" cy="380" r="4" fill="#FF6B6B"/>
+<circle cx="227" cy="427" r="4" fill="#FF6B6B"/>
+<circle cx="230" cy="420" r="4" fill="#FF6B6B"/>
+<circle cx="237" cy="225" r="4" fill="#FF6B6B"/>
+<circle cx="242" cy="336" r="4" fill="#FF6B6B"/>
+<circle cx="245" cy="351" r="4" fill="#FF6B6B"/>
+<circle cx="277" cy="440" r="4" fill="#FF6B6B"/>
+<circle cx="281" cy="437" r="4" fill="#FF6B6B"/>
+<circle cx="284" cy="288" r="4" fill="#FF6B6B"/>
+<circle cx="285" cy="220" r="4" fill="#FF6B6B"/>
+<circle cx="287" cy="374" r="4" fill="#FF6B6B"/>
+<circle cx="288" cy="440" r="4" fill="#FF6B6B"/>
+<circle cx="289" cy="220" r="4" fill="#FF6B6B"/>
+<circle cx="296" cy="429" r="4" fill="#FF6B6B"/>
+<circle cx="298" cy="429" r="4" fill="#FF6B6B"/>
+<circle cx="312" cy="420" r="4" fill="#FF6B6B"/>
+<circle cx="313" cy="440" r="4" fill="#FF6B6B"/>
+</g>
+<g transform="translate(500,630)">
+<rect x="0" y="0" width="15" height="15" fill="#4A90E2"/>
+<text x="20" y="12" font-family="Arial, sans-serif" font-size="14" fill="black">lessgo</text>
+<rect x="150" y="0" width="15" height="15" fill="#50C878"/>
+<text x="170" y="12" font-family="Arial, sans-serif" font-size="14" fill="black">platform</text>
+<rect x="300" y="0" width="15" height="15" fill="#FF6B6B"/>
+<text x="320" y="12" font-family="Arial, sans-serif" font-size="14" fill="black">vuego</text>
+</g>
+</svg>
