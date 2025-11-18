@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Cumulative Modified Files Over Time - vuego</text>
+<g transform="translate(80,130)">
+<line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
+<line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
+<text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0</text>
+<line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">85</text>
+<line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">171</text>
+<line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">257</text>
+<line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">343</text>
+<line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">429</text>
+<line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0</text>
+<text x="104" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">6</text>
+<text x="208" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">12</text>
+<text x="312" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">18</text>
+<text x="416" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">24</text>
+<text x="520" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">30</text>
+<text x="624" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">36</text>
+<text x="728" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">42</text>
+<text x="832" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">48</text>
+<text x="936" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">54</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">60</text>
+<polyline points="0,399 17,346 34,333 52,328 69,312 86,310 104,309 121,295 138,289 156,288 173,283 190,274 208,250 225,247 242,240 260,222 277,221 294,220 312,209 329,196 346,188 364,181 381,179 398,162 416,133 433,130 450,129 468,128 485,112 502,103 520,98 537,94 554,90 572,86 589,85 606,84 624,83 641,80 658,79 676,78 693,75 710,73 728,71 745,69 762,66 780,64 797,62 814,58 832,54 849,52 866,44 884,31 901,27 918,26 936,24 953,22 970,17 988,8 1005,6 1022,2 1040,0 " fill="none" stroke="#FF6B6B" stroke-width="3"/>
+<circle cx="0" cy="399" r="4" fill="#FF6B6B"/>
+<circle cx="52" cy="328" r="4" fill="#FF6B6B"/>
+<circle cx="104" cy="309" r="4" fill="#FF6B6B"/>
+<circle cx="156" cy="288" r="4" fill="#FF6B6B"/>
+<circle cx="208" cy="250" r="4" fill="#FF6B6B"/>
+<circle cx="260" cy="222" r="4" fill="#FF6B6B"/>
+<circle cx="312" cy="209" r="4" fill="#FF6B6B"/>
+<circle cx="364" cy="181" r="4" fill="#FF6B6B"/>
+<circle cx="416" cy="133" r="4" fill="#FF6B6B"/>
+<circle cx="468" cy="128" r="4" fill="#FF6B6B"/>
+<circle cx="520" cy="98" r="4" fill="#FF6B6B"/>
+<circle cx="572" cy="86" r="4" fill="#FF6B6B"/>
+<circle cx="624" cy="83" r="4" fill="#FF6B6B"/>
+<circle cx="676" cy="78" r="4" fill="#FF6B6B"/>
+<circle cx="728" cy="71" r="4" fill="#FF6B6B"/>
+<circle cx="780" cy="64" r="4" fill="#FF6B6B"/>
+<circle cx="832" cy="54" r="4" fill="#FF6B6B"/>
+<circle cx="884" cy="31" r="4" fill="#FF6B6B"/>
+<circle cx="936" cy="24" r="4" fill="#FF6B6B"/>
+<circle cx="988" cy="8" r="4" fill="#FF6B6B"/>
+<circle cx="1040" cy="0" r="4" fill="#FF6B6B"/>
+</g>
+</svg>

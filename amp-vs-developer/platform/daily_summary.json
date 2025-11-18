@@ -7,7 +7,9 @@
 			"files_removed": 0,
 			"lines_added": 2154,
 			"lines_removed": 51,
-			"commit_count": 10
+			"commit_count": 10,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-10-26",
@@ -15,7 +17,9 @@
 			"files_removed": 1,
 			"lines_added": 351,
 			"lines_removed": 158,
-			"commit_count": 12
+			"commit_count": 12,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-10-27",
@@ -23,7 +27,9 @@
 			"files_removed": 0,
 			"lines_added": 10,
 			"lines_removed": 8,
-			"commit_count": 2
+			"commit_count": 2,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-10-29",
@@ -31,7 +37,9 @@
 			"files_removed": 0,
 			"lines_added": 634,
 			"lines_removed": 219,
-			"commit_count": 7
+			"commit_count": 7,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-10-30",
@@ -39,7 +47,9 @@
 			"files_removed": 6,
 			"lines_added": 718,
 			"lines_removed": 407,
-			"commit_count": 6
+			"commit_count": 6,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-10-31",
@@ -47,7 +57,9 @@
 			"files_removed": 5,
 			"lines_added": 751,
 			"lines_removed": 317,
-			"commit_count": 4
+			"commit_count": 4,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-01",
@@ -55,7 +67,9 @@
 			"files_removed": 0,
 			"lines_added": 468,
 			"lines_removed": 215,
-			"commit_count": 10
+			"commit_count": 10,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-02",
@@ -63,7 +77,9 @@
 			"files_removed": 0,
 			"lines_added": 1731,
 			"lines_removed": 886,
-			"commit_count": 32
+			"commit_count": 32,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-03",
@@ -71,7 +87,9 @@
 			"files_removed": 51,
 			"lines_added": 408,
 			"lines_removed": 2042,
-			"commit_count": 2
+			"commit_count": 2,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-04",
@@ -79,7 +97,9 @@
 			"files_removed": 2,
 			"lines_added": 55,
 			"lines_removed": 87,
-			"commit_count": 6
+			"commit_count": 6,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-05",
@@ -87,7 +107,9 @@
 			"files_removed": 1,
 			"lines_added": 465,
 			"lines_removed": 179,
-			"commit_count": 6
+			"commit_count": 6,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-07",
@@ -95,7 +117,9 @@
 			"files_removed": 0,
 			"lines_added": 127,
 			"lines_removed": 46,
-			"commit_count": 5
+			"commit_count": 5,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		},
 		{
 			"date": "2025-11-08",
@@ -103,7 +127,9 @@
 			"files_removed": 0,
 			"lines_added": 878,
 			"lines_removed": 43,
-			"commit_count": 4
+			"commit_count": 4,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		}
 	]
 }

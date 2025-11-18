@@ -7,7 +7,9 @@
 			"files_removed": 7,
 			"lines_added": 5977,
 			"lines_removed": 2074,
-			"commit_count": 50
+			"commit_count": 50,
+			"test_files_added": 0,
+			"test_files_removed": 0
 		}
 	]
 }

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Code Churn Over Time - platform</text>
+<g transform="translate(80,130)">
+<line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
+<line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
+<text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0.0%</text>
+<line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">20.0%</text>
+<line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">40.0%</text>
+<line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">60.0%</text>
+<line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">80.0%</text>
+<line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">100.0%</text>
+<line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0</text>
+<text x="99" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">10</text>
+<text x="198" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">20</text>
+<text x="297" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">30</text>
+<text x="396" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">40</text>
+<text x="495" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">50</text>
+<text x="594" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">60</text>
+<text x="693" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">70</text>
+<text x="792" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">80</text>
+<text x="891" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">90</text>
+<text x="990" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">100</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">105</text>
+<polyline points="0,440 9,440 19,304 29,227 39,220 49,367 59,74 69,440 79,256 89,440 99,220 108,308 118,440 128,248 138,373 148,440 158,398 168,193 178,302 188,220 198,363 208,283 217,147 227,343 237,295 247,333 257,220 267,409 277,429 287,0 297,206 307,196 316,440 326,278 336,440 346,378 356,332 366,416 376,236 386,367 396,264 406,372 416,440 425,233 435,305 445,220 455,306 465,290 475,220 485,266 495,269 505,414 515,184 524,147 534,440 544,440 554,294 564,380 574,421 584,440 594,176 604,110 614,315 624,275 633,147 643,118 653,220 663,192 673,395 683,220 693,440 703,231 713,384 723,220 732,253 742,421 752,440 762,440 772,221 782,229 792,252 802,283 812,273 822,72 832,189 841,220 851,252 861,6 871,385 881,220 891,440 901,436 911,440 921,274 931,255 940,358 950,311 960,440 970,440 980,269 990,388 1000,204 1010,367 1020,440 1030,220 1040,425 " fill="none" stroke="#9B59B6" stroke-width="3"/>
+<circle cx="0" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="49" cy="367" r="4" fill="#9B59B6"/>
+<circle cx="99" cy="220" r="4" fill="#9B59B6"/>
+<circle cx="148" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="198" cy="363" r="4" fill="#9B59B6"/>
+<circle cx="247" cy="333" r="4" fill="#9B59B6"/>
+<circle cx="297" cy="206" r="4" fill="#9B59B6"/>
+<circle cx="346" cy="378" r="4" fill="#9B59B6"/>
+<circle cx="396" cy="264" r="4" fill="#9B59B6"/>
+<circle cx="445" cy="220" r="4" fill="#9B59B6"/>
+<circle cx="495" cy="269" r="4" fill="#9B59B6"/>
+<circle cx="544" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="594" cy="176" r="4" fill="#9B59B6"/>
+<circle cx="643" cy="118" r="4" fill="#9B59B6"/>
+<circle cx="693" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="742" cy="421" r="4" fill="#9B59B6"/>
+<circle cx="792" cy="252" r="4" fill="#9B59B6"/>
+<circle cx="841" cy="220" r="4" fill="#9B59B6"/>
+<circle cx="891" cy="440" r="4" fill="#9B59B6"/>
+<circle cx="940" cy="358" r="4" fill="#9B59B6"/>
+<circle cx="990" cy="388" r="4" fill="#9B59B6"/>
+<circle cx="1040" cy="425" r="4" fill="#9B59B6"/>
+</g>
+</svg>

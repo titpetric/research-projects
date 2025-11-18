@@ -8,7 +8,11 @@
 		"files_changed": 1,
 		"total_files": 168,
 		"lines_added": 4,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 26,
+		"total_source_files": 21
 	},
 	{
 		"hash": "0001d6e2fb5cd58c09387ddae6422085deaf0fbb",
@@ -19,7 +23,11 @@
 		"files_changed": 4,
 		"total_files": 168,
 		"lines_added": 174,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 26,
+		"total_source_files": 21
 	},
 	{
 		"hash": "4dd719e3ff562c0572b149d074d7a644a57d26ae",
@@ -30,7 +38,11 @@
 		"files_changed": 2,
 		"total_files": 164,
 		"lines_added": 183,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 26,
+		"total_source_files": 21
 	},
 	{
 		"hash": "b003b16e363b00a0e40d0e2744a0a1797c96ba41",
@@ -41,7 +53,11 @@
 		"files_changed": 9,
 		"total_files": 162,
 		"lines_added": 222,
-		"lines_removed": 11
+		"lines_removed": 11,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 26,
+		"total_source_files": 21
 	},
 	{
 		"hash": "f095c45f6832147a26d9b3f2f3498f28d1036e3e",
@@ -52,7 +68,11 @@
 		"files_changed": 5,
 		"total_files": 158,
 		"lines_added": 20,
-		"lines_removed": 10
+		"lines_removed": 10,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 25,
+		"total_source_files": 21
 	},
 	{
 		"hash": "e40bfff27d22e3597ca0e16a1358fcd2dda94fc7",
@@ -63,7 +83,11 @@
 		"files_changed": 2,
 		"total_files": 157,
 		"lines_added": 42,
-		"lines_removed": 7
+		"lines_removed": 7,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 25,
+		"total_source_files": 21
 	},
 	{
 		"hash": "d230f5ac1839fd8c6248eeffdb27e4e45a1fe7ea",
@@ -74,7 +98,11 @@
 		"files_changed": 2,
 		"total_files": 157,
 		"lines_added": 38,
-		"lines_removed": 1
+		"lines_removed": 1,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 25,
+		"total_source_files": 21
 	},
 	{
 		"hash": "c5723724e3d9796e45053322bc421cb074b3d979",
@@ -85,7 +113,11 @@
 		"files_changed": 1,
 		"total_files": 157,
 		"lines_added": 1,
-		"lines_removed": 1
+		"lines_removed": 1,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 25,
+		"total_source_files": 21
 	},
 	{
 		"hash": "a2e99a6fb677a2c27099df4eae4819de80e8cd76",
@@ -96,7 +128,11 @@
 		"files_changed": 4,
 		"total_files": 157,
 		"lines_added": 6,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 25,
+		"total_source_files": 21
 	},
 	{
 		"hash": "1b39d464e24b3b89172bf5a313c5c63db04e622f",
@@ -107,7 +143,11 @@
 		"files_changed": 12,
 		"total_files": 153,
 		"lines_added": 896,
-		"lines_removed": 24
+		"lines_removed": 24,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 25,
+		"total_source_files": 21
 	},
 	{
 		"hash": "99f2087857065fdcee4a00ae1e7ec8c9fe680443",
@@ -118,7 +158,11 @@
 		"files_changed": 8,
 		"total_files": 151,
 		"lines_added": 1022,
-		"lines_removed": 23
+		"lines_removed": 23,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "acba4df58a1a7c97b6c482d4d4a0feca1eac6d00",
@@ -129,7 +173,11 @@
 		"files_changed": 2,
 		"total_files": 151,
 		"lines_added": 0,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "85887d869ea0d20fe96c9382422497d9023f1fa3",
@@ -140,7 +188,11 @@
 		"files_changed": 4,
 		"total_files": 151,
 		"lines_added": 3,
-		"lines_removed": 3
+		"lines_removed": 3,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "966f43845bda9c3203fae8e999631666e3e2c41e",
@@ -151,7 +203,11 @@
 		"files_changed": 4,
 		"total_files": 151,
 		"lines_added": 59,
-		"lines_removed": 2
+		"lines_removed": 2,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "a2594bacc8f7630dee009ec774c8cdd49ccf95a3",
@@ -162,7 +218,11 @@
 		"files_changed": 2,
 		"total_files": 150,
 		"lines_added": 94,
-		"lines_removed": 9
+		"lines_removed": 9,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "81b225f1a8296170a44ce3dd59dd5c50af85b28d",
@@ -173,7 +233,11 @@
 		"files_changed": 2,
 		"total_files": 150,
 		"lines_added": 20,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "1ba173752d8fa7df90fd834713f28c443300cf9e",
@@ -184,7 +248,11 @@
 		"files_changed": 3,
 		"total_files": 150,
 		"lines_added": 50,
-		"lines_removed": 6
+		"lines_removed": 6,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "13f5fb82a11b375ad1c6c93f62c5c63d19c504b6",
@@ -195,7 +263,11 @@
 		"files_changed": 2,
 		"total_files": 150,
 		"lines_added": 43,
-		"lines_removed": 2
+		"lines_removed": 2,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "4e512635226f07d38c016d886e325185ca83acb2",
@@ -206,7 +278,11 @@
 		"files_changed": 2,
 		"total_files": 149,
 		"lines_added": 51,
-		"lines_removed": 9
+		"lines_removed": 9,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "be3ca5da82e009760ad29874b2f268eba92ac4a5",
@@ -217,7 +293,11 @@
 		"files_changed": 2,
 		"total_files": 149,
 		"lines_added": 18,
-		"lines_removed": 6
+		"lines_removed": 6,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "f681d156d62dc159c2e4652f4781b1b25ccf3cb7",
@@ -228,7 +308,11 @@
 		"files_changed": 3,
 		"total_files": 149,
 		"lines_added": 60,
-		"lines_removed": 4
+		"lines_removed": 4,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "3d69103b17fab122f5ed2f2c575f88bbfb9e5b0b",
@@ -239,7 +323,11 @@
 		"files_changed": 1,
 		"total_files": 149,
 		"lines_added": 1,
-		"lines_removed": 1
+		"lines_removed": 1,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "96b2fc1c8b1c2aa7dd2477c340c96724ed8936bc",
@@ -250,7 +338,11 @@
 		"files_changed": 1,
 		"total_files": 149,
 		"lines_added": 46,
-		"lines_removed": 8
+		"lines_removed": 8,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "f05a82e3876901b6fed9c59edc1aefad91ccac9f",
@@ -261,7 +353,11 @@
 		"files_changed": 2,
 		"total_files": 149,
 		"lines_added": 335,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "c736b4d83ffffc012be503deee2fa18a6bd4f459",
@@ -272,7 +368,11 @@
 		"files_changed": 1,
 		"total_files": 149,
 		"lines_added": 17,
-		"lines_removed": 9
+		"lines_removed": 9,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "21899fc8210077920844cad6d923be89895ee191",
@@ -283,7 +383,11 @@
 		"files_changed": 1,
 		"total_files": 149,
 		"lines_added": 23,
-		"lines_removed": 2
+		"lines_removed": 2,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "c8f1248113e974bb149ddf9987e3930a6ed7a42c",
@@ -294,7 +398,11 @@
 		"files_changed": 1,
 		"total_files": 149,
 		"lines_added": 1,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "a4d0fc68466a2cc18a06e05dcf7865be50aa65fc",
@@ -305,7 +413,11 @@
 		"files_changed": 4,
 		"total_files": 149,
 		"lines_added": 571,
-		"lines_removed": 5
+		"lines_removed": 5,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "d51fa8306f165ab863b3e24591a3fb12837c1b3b",
@@ -316,7 +428,11 @@
 		"files_changed": 4,
 		"total_files": 149,
 		"lines_added": 102,
-		"lines_removed": 347
+		"lines_removed": 347,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "5780cc9ed4b7b5f847790d61f0602783abf96c2c",
@@ -327,7 +443,11 @@
 		"files_changed": 4,
 		"total_files": 149,
 		"lines_added": 124,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "35fd9bd6e76afff107cbd94c9b2efa5deb24fc89",
@@ -338,7 +458,11 @@
 		"files_changed": 5,
 		"total_files": 145,
 		"lines_added": 40,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "140b65f66d26285e537eef6e2ed595d59b3088ff",
@@ -349,7 +473,11 @@
 		"files_changed": 9,
 		"total_files": 142,
 		"lines_added": 450,
-		"lines_removed": 112
+		"lines_removed": 112,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 24,
+		"total_source_files": 20
 	},
 	{
 		"hash": "0935c8da0b2f0e18ffb5bbe04e9ed32668876c0d",
@@ -360,7 +488,11 @@
 		"files_changed": 15,
 		"total_files": 141,
 		"lines_added": 895,
-		"lines_removed": 629
+		"lines_removed": 629,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 23,
+		"total_source_files": 20
 	},
 	{
 		"hash": "95a8ca0aea96d3cc68cf92b6fbba2459203a0dec",
@@ -371,7 +503,11 @@
 		"files_changed": 1,
 		"total_files": 129,
 		"lines_added": 82,
-		"lines_removed": 21
+		"lines_removed": 21,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 23,
+		"total_source_files": 20
 	},
 	{
 		"hash": "8490bc92e53a3d204c93c123831e5242279f8b0d",
@@ -382,7 +518,11 @@
 		"files_changed": 1,
 		"total_files": 129,
 		"lines_added": 3,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 23,
+		"total_source_files": 20
 	},
 	{
 		"hash": "9e72f805dec3ba8d1b0bbe01be34451ecc26d840",
@@ -393,7 +533,11 @@
 		"files_changed": 3,
 		"total_files": 129,
 		"lines_added": 81,
-		"lines_removed": 16
+		"lines_removed": 16,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 23,
+		"total_source_files": 20
 	},
 	{
 		"hash": "ea7b1d54eb0766e94cb92bde843040be71eaf773",
@@ -404,7 +548,11 @@
 		"files_changed": 28,
 		"total_files": 129,
 		"lines_added": 1323,
-		"lines_removed": 410
+		"lines_removed": 410,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 23,
+		"total_source_files": 20
 	},
 	{
 		"hash": "c5bfb2ce1c067261018694cf78c6b5ea494461bb",
@@ -415,7 +563,11 @@
 		"files_changed": 17,
 		"total_files": 119,
 		"lines_added": 1583,
-		"lines_removed": 284
+		"lines_removed": 284,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 13,
+		"total_source_files": 20
 	},
 	{
 		"hash": "22d01ff926b401d3b374177f0a4d5296eed6b2fd",
@@ -426,7 +578,11 @@
 		"files_changed": 2,
 		"total_files": 116,
 		"lines_added": 9,
-		"lines_removed": 12
+		"lines_removed": 12,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 10,
+		"total_source_files": 20
 	},
 	{
 		"hash": "071d2ec90a123bca29ef548be8620eadc0381c7f",
@@ -437,7 +593,11 @@
 		"files_changed": 7,
 		"total_files": 116,
 		"lines_added": 121,
-		"lines_removed": 116
+		"lines_removed": 116,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 10,
+		"total_source_files": 20
 	},
 	{
 		"hash": "d49b5a60689ba1c91f80c575957c65fc8c64c81a",
@@ -448,7 +608,11 @@
 		"files_changed": 8,
 		"total_files": 113,
 		"lines_added": 927,
-		"lines_removed": 14
+		"lines_removed": 14,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 10,
+		"total_source_files": 17
 	},
 	{
 		"hash": "d217438fbe4a8956bbb6b3b7600257c83d9a6a73",
@@ -459,7 +623,11 @@
 		"files_changed": 12,
 		"total_files": 111,
 		"lines_added": 576,
-		"lines_removed": 138
+		"lines_removed": 138,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 9,
+		"total_source_files": 16
 	},
 	{
 		"hash": "8e40e997faa351bf86ab5adf520331ac7cb57f78",
@@ -470,7 +638,11 @@
 		"files_changed": 11,
 		"total_files": 110,
 		"lines_added": 685,
-		"lines_removed": 33
+		"lines_removed": 33,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 8,
+		"total_source_files": 16
 	},
 	{
 		"hash": "4c8effa058f36c4914ec8e26297469c346602c9f",
@@ -481,7 +653,11 @@
 		"files_changed": 1,
 		"total_files": 104,
 		"lines_added": 1,
-		"lines_removed": 1
+		"lines_removed": 1,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 7,
+		"total_source_files": 15
 	},
 	{
 		"hash": "0fae4ce20364b1387eed41aab7b1d80a6a2e7020",
@@ -492,7 +668,11 @@
 		"files_changed": 1,
 		"total_files": 104,
 		"lines_added": 1,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 7,
+		"total_source_files": 15
 	},
 	{
 		"hash": "b1b46bbdffebdefd8bfbe8ceaf71890d42331844",
@@ -503,7 +683,11 @@
 		"files_changed": 18,
 		"total_files": 104,
 		"lines_added": 2419,
-		"lines_removed": 75
+		"lines_removed": 75,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 7,
+		"total_source_files": 15
 	},
 	{
 		"hash": "5ccd00d855050b21b7eee2a8af1c5352181125e3",
@@ -514,7 +698,11 @@
 		"files_changed": 6,
 		"total_files": 100,
 		"lines_added": 208,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 14
 	},
 	{
 		"hash": "07f135b7bf332dfc36cd805564d76f3183a816ed",
@@ -525,7 +713,11 @@
 		"files_changed": 3,
 		"total_files": 94,
 		"lines_added": 718,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 14
 	},
 	{
 		"hash": "7d6db4fb5560722ecdc95b0219fc47de84fb9e52",
@@ -536,7 +728,11 @@
 		"files_changed": 24,
 		"total_files": 91,
 		"lines_added": 1874,
-		"lines_removed": 299
+		"lines_removed": 299,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 13
 	},
 	{
 		"hash": "0ecd103ac2ea041e52f02ba5584109878ee43d9c",
@@ -547,7 +743,11 @@
 		"files_changed": 8,
 		"total_files": 78,
 		"lines_added": 863,
-		"lines_removed": 66
+		"lines_removed": 66,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 13
 	},
 	{
 		"hash": "559daeffd0b2c9ba2533eb507bed400d7987aa91",
@@ -558,7 +758,11 @@
 		"files_changed": 5,
 		"total_files": 74,
 		"lines_added": 49,
-		"lines_removed": 16
+		"lines_removed": 16,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 13
 	},
 	{
 		"hash": "995353f2c458a0938e65485c43b0e49cc73e6190",
@@ -569,7 +773,11 @@
 		"files_changed": 1,
 		"total_files": 74,
 		"lines_added": 22,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 13
 	},
 	{
 		"hash": "944a27dafeed11e464e0a75c6dd4916aa9ea6f49",
@@ -580,7 +788,11 @@
 		"files_changed": 6,
 		"total_files": 73,
 		"lines_added": 690,
-		"lines_removed": 1
+		"lines_removed": 1,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 13
 	},
 	{
 		"hash": "9a5b411a0466ba856460fa65ecfd0c90a98eba4f",
@@ -591,7 +803,11 @@
 		"files_changed": 14,
 		"total_files": 68,
 		"lines_added": 135,
-		"lines_removed": 394
+		"lines_removed": 394,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 3,
+		"total_source_files": 11
 	},
 	{
 		"hash": "7334747a9484116d2259e55d058b95e7ccfc475c",
@@ -602,7 +818,11 @@
 		"files_changed": 1,
 		"total_files": 70,
 		"lines_added": 3,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 12
 	},
 	{
 		"hash": "238bae6591d23f00694e7409be997a964de29ef0",
@@ -613,7 +833,11 @@
 		"files_changed": 2,
 		"total_files": 70,
 		"lines_added": 482,
-		"lines_removed": 8
+		"lines_removed": 8,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 4,
+		"total_source_files": 12
 	},
 	{
 		"hash": "4580d58798d9ec0ad50526b08a99f0be05586104",
@@ -624,7 +848,11 @@
 		"files_changed": 15,
 		"total_files": 69,
 		"lines_added": 743,
-		"lines_removed": 182
+		"lines_removed": 182,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 3,
+		"total_source_files": 12
 	},
 	{
 		"hash": "3f80809ea74abe0158812347ef4e305fc7fef6cd",
@@ -635,7 +863,11 @@
 		"files_changed": 5,
 		"total_files": 59,
 		"lines_added": 92,
-		"lines_removed": 7
+		"lines_removed": 7,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 2,
+		"total_source_files": 10
 	},
 	{
 		"hash": "6250d75a1318e9a14781c68e272b2a5954e5a946",
@@ -646,7 +878,11 @@
 		"files_changed": 13,
 		"total_files": 56,
 		"lines_added": 1313,
-		"lines_removed": 131
+		"lines_removed": 131,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 2,
+		"total_source_files": 10
 	},
 	{
 		"hash": "6a9b7eab071c026d968a4c09469deaa8fd51f799",
@@ -657,7 +893,11 @@
 		"files_changed": 52,
 		"total_files": 50,
 		"lines_added": 743,
-		"lines_removed": 556
+		"lines_removed": 556,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 2,
+		"total_source_files": 9
 	},
 	{
 		"hash": "4e19185c4bf0f8c9eb4a38c74568bd14c32f8eb7",
@@ -668,6 +908,10 @@
 		"files_changed": 40,
 		"total_files": 40,
 		"lines_added": 1453,
-		"lines_removed": 0
+		"lines_removed": 0,
+		"test_files_added": 0,
+		"test_files_removed": 0,
+		"total_test_files": 2,
+		"total_source_files": 5
 	}
 ]

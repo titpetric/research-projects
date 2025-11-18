@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Test Ratio Over Time - platform</text>
+<g transform="translate(80,130)">
+<line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
+<line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
+<text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0.0%</text>
+<line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">7.7%</text>
+<line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">15.3%</text>
+<line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">23.0%</text>
+<line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">30.6%</text>
+<line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">38.3%</text>
+<line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0</text>
+<text x="99" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">10</text>
+<text x="198" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">20</text>
+<text x="297" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">30</text>
+<text x="396" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">40</text>
+<text x="495" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">50</text>
+<text x="594" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">60</text>
+<text x="693" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">70</text>
+<text x="792" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">80</text>
+<text x="891" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">90</text>
+<text x="990" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">100</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">105</text>
+<polyline points="0,329 9,329 19,333 29,333 39,333 49,333 59,333 69,333 79,336 89,336 99,339 108,339 118,339 128,339 138,339 148,342 158,342 168,342 178,345 188,345 198,345 208,345 217,345 227,345 237,358 247,362 257,362 267,362 277,366 287,366 297,366 307,364 316,366 326,366 336,366 346,367 356,394 366,393 376,391 386,393 396,393 406,393 416,393 425,393 435,393 445,393 455,393 465,373 475,373 485,373 495,373 505,352 515,352 524,352 534,313 544,196 554,200 564,185 574,171 584,171 594,171 604,171 614,171 624,171 633,171 643,171 653,171 663,171 673,158 683,158 693,149 703,149 713,124 723,124 732,117 742,117 752,117 762,117 772,117 782,117 792,117 802,121 812,103 822,40 832,40 841,40 851,40 861,48 871,30 881,30 891,30 901,13 911,6 921,6 931,6 940,6 950,6 960,6 970,6 980,6 990,0 1000,0 1010,0 1020,0 1030,0 1040,0 " fill="none" stroke="#E67E22" stroke-width="3"/>
+<circle cx="0" cy="329" r="4" fill="#E67E22"/>
+<circle cx="49" cy="333" r="4" fill="#E67E22"/>
+<circle cx="99" cy="339" r="4" fill="#E67E22"/>
+<circle cx="148" cy="342" r="4" fill="#E67E22"/>
+<circle cx="198" cy="345" r="4" fill="#E67E22"/>
+<circle cx="247" cy="362" r="4" fill="#E67E22"/>
+<circle cx="297" cy="366" r="4" fill="#E67E22"/>
+<circle cx="346" cy="367" r="4" fill="#E67E22"/>
+<circle cx="396" cy="393" r="4" fill="#E67E22"/>
+<circle cx="445" cy="393" r="4" fill="#E67E22"/>
+<circle cx="495" cy="373" r="4" fill="#E67E22"/>
+<circle cx="544" cy="196" r="4" fill="#E67E22"/>
+<circle cx="594" cy="171" r="4" fill="#E67E22"/>
+<circle cx="643" cy="171" r="4" fill="#E67E22"/>
+<circle cx="693" cy="149" r="4" fill="#E67E22"/>
+<circle cx="742" cy="117" r="4" fill="#E67E22"/>
+<circle cx="792" cy="117" r="4" fill="#E67E22"/>
+<circle cx="841" cy="40" r="4" fill="#E67E22"/>
+<circle cx="891" cy="30" r="4" fill="#E67E22"/>
+<circle cx="940" cy="6" r="4" fill="#E67E22"/>
+<circle cx="990" cy="0" r="4" fill="#E67E22"/>
+<circle cx="1040" cy="0" r="4" fill="#E67E22"/>
+</g>
+</svg>

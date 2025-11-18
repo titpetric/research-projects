@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="black">Cumulative Files Over Time - platform</text>
+<g transform="translate(80,130)">
+<line x1="0" y1="440" x2="1040" y2="440" stroke="#333" stroke-width="2"/>
+<line x1="0" y1="0" x2="0" y2="440" stroke="#333" stroke-width="2"/>
+<text x="-10" y="445" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">0</text>
+<line x1="-5" y1="440" x2="0" y2="440" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="357" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">21</text>
+<line x1="-5" y1="352" x2="0" y2="352" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="269" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">42</text>
+<line x1="-5" y1="264" x2="0" y2="264" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="181" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">63</text>
+<line x1="-5" y1="176" x2="0" y2="176" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="93" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">84</text>
+<line x1="-5" y1="88" x2="0" y2="88" stroke="#ccc" stroke-width="1"/>
+<text x="-10" y="5" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666">105</text>
+<line x1="-5" y1="0" x2="0" y2="0" stroke="#ccc" stroke-width="1"/>
+<text x="0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">0</text>
+<text x="99" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">10</text>
+<text x="198" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">20</text>
+<text x="297" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">30</text>
+<text x="396" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">40</text>
+<text x="495" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">50</text>
+<text x="594" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">60</text>
+<text x="693" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">70</text>
+<text x="792" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">80</text>
+<text x="891" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">90</text>
+<text x="990" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">100</text>
+<text x="1040" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#666">105</text>
+<polyline points="0,248 9,244 19,239 29,239 39,239 49,239 59,239 69,239 79,235 89,235 99,231 108,231 118,231 128,231 138,231 148,227 158,227 168,227 178,223 188,223 198,223 208,223 217,223 227,223 237,197 247,185 257,185 267,185 277,176 287,176 297,176 307,181 316,176 326,176 336,176 346,172 356,160 366,135 376,130 386,122 396,122 406,122 416,122 425,122 435,122 445,122 455,122 465,109 475,109 485,109 495,109 505,105 515,105 524,105 534,97 544,68 554,63 564,59 574,55 584,55 594,55 604,55 614,55 624,55 633,55 643,55 653,55 663,55 673,42 683,42 693,34 703,34 713,26 723,26 732,17 742,17 752,17 762,17 772,17 782,17 792,17 802,13 812,0 822,176 832,176 841,176 851,176 861,185 871,181 881,181 891,181 901,176 911,168 921,168 931,168 940,168 950,160 960,160 970,160 980,147 990,139 1000,139 1010,139 1020,118 1030,118 1040,114 " fill="none" stroke="#4A90E2" stroke-width="3"/>
+<circle cx="0" cy="248" r="4" fill="#4A90E2"/>
+<circle cx="49" cy="239" r="4" fill="#4A90E2"/>
+<circle cx="99" cy="231" r="4" fill="#4A90E2"/>
+<circle cx="148" cy="227" r="4" fill="#4A90E2"/>
+<circle cx="198" cy="223" r="4" fill="#4A90E2"/>
+<circle cx="247" cy="185" r="4" fill="#4A90E2"/>
+<circle cx="297" cy="176" r="4" fill="#4A90E2"/>
+<circle cx="346" cy="172" r="4" fill="#4A90E2"/>
+<circle cx="396" cy="122" r="4" fill="#4A90E2"/>
+<circle cx="445" cy="122" r="4" fill="#4A90E2"/>
+<circle cx="495" cy="109" r="4" fill="#4A90E2"/>
+<circle cx="544" cy="68" r="4" fill="#4A90E2"/>
+<circle cx="594" cy="55" r="4" fill="#4A90E2"/>
+<circle cx="643" cy="55" r="4" fill="#4A90E2"/>
+<circle cx="693" cy="34" r="4" fill="#4A90E2"/>
+<circle cx="742" cy="17" r="4" fill="#4A90E2"/>
+<circle cx="792" cy="17" r="4" fill="#4A90E2"/>
+<circle cx="841" cy="176" r="4" fill="#4A90E2"/>
+<circle cx="891" cy="181" r="4" fill="#4A90E2"/>
+<circle cx="940" cy="168" r="4" fill="#4A90E2"/>
+<circle cx="990" cy="139" r="4" fill="#4A90E2"/>
+<circle cx="1040" cy="114" r="4" fill="#4A90E2"/>
+</g>
+</svg>
