@@ -20,10 +20,10 @@ type bpfEvent struct {
 	Uid        uint32
 	ArgsCount  uint32
 	ArgsSize   uint32
-	Comm       [16]uint8
-	ParentComm [16]uint8
+	Comm       [64]uint8
+	ParentComm [64]uint8
 	Filename   [256]uint8
-	Args       [2048]uint8
+	Args       [384]uint8
 }
 
 // loadBpf returns the embedded CollectionSpec for bpf.

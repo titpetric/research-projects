@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"commandtrx/model"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -51,6 +52,12 @@ func Run(ctx context.Context, cfg model.Config) error {
 	log.Println("Tracing execve calls... Press Ctrl+C to stop.")
 
 	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
 		record, err := rd.Read()
 		if err != nil {
 			if errors.Is(err, ringbuf.ErrClosed) {
@@ -99,8 +106,9 @@ func Run(ctx context.Context, cfg model.Config) error {
 		}
 		ancestors := model.AncestorChain(evt.PID, evt.ParentComm)
 		slices.Reverse(ancestors)
+		ancestorsJSON, _ := json.Marshal(ancestors)
 		fmt.Printf("- pid: %d\n  command: %s\n  binary: %s\n  parents: %s\n",
-			evt.PID, cmd, evt.Filename, strings.Join(ancestors, " > "))
+			evt.PID, cmd, evt.Filename, string(ancestorsJSON))
 		if summary.Host != "" {
 			fmt.Printf("  host: %s\n", summary.Host)
 		}
