@@ -1,0 +1,43 @@
+version: "3"
+
+vars:
+  BINARY: bin/commandtrx-linux-amd64
+  CLI_ARGS: ''
+
+tasks:
+  default:
+    desc: Build and run the tracer
+    interactive: true
+    cmds:
+      - atkins go:build
+      - ${{BINARY}} ${{CLI_ARGS}}
+
+  build:
+    desc: Build the binary
+    cmds:
+      - atkins go:build
+
+  generate:
+    desc: Run go generate (compile eBPF program)
+    cmds:
+      - atkins go:generate
+
+  test:
+    desc: Run tests
+    cmds:
+      - atkins go:test
+
+  lint:
+    desc: Lint the code
+    cmds:
+      - atkins go:lint
+
+  fmt:
+    desc: Format the code
+    cmds:
+      - atkins go:fmt
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf bin/
