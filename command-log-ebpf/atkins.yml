@@ -10,7 +10,8 @@ tasks:
     interactive: true
     cmds:
       - atkins go:build
-      - ${{BINARY}} ${{CLI_ARGS}}
+      - rm execution.log.yml -f
+      - ${{BINARY}} ${{CLI_ARGS}} | tee -a execution.log.yml
 
   build:
     desc: Build the binary
@@ -27,6 +28,7 @@ tasks:
     desc: Run tests
     cmds:
       - atkins go:test
+      - go run scripts/sankey.go && plantuml -tsvg execution-sankey.puml
 
   lint:
     desc: Lint the code
