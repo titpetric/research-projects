@@ -1,0 +1,15 @@
+goos: linux
+goarch: amd64
+pkg: callbacks
+cpu: Intel(R) N150
+BenchmarkNative             	17137622	       672.8 ns/op	     512 B/op	       3 allocs/op
+BenchmarkNative             	18476893	       667.6 ns/op	     512 B/op	       3 allocs/op
+BenchmarkNative             	17791824	       680.4 ns/op	     512 B/op	       3 allocs/op
+BenchmarkCostWithoutCaching 	 5577490	      2089 ns/op	      1405 cost-ns/op	       684.8 native-ns/op	    1088 B/op	      11 allocs/op
+BenchmarkCostWithoutCaching 	 5826451	      2079 ns/op	      1402 cost-ns/op	       677.1 native-ns/op	    1088 B/op	      11 allocs/op
+BenchmarkCostWithoutCaching 	 5995466	      2012 ns/op	      1326 cost-ns/op	       686.5 native-ns/op	    1088 B/op	      11 allocs/op
+BenchmarkCostAmortizedCache 	15929355	       704.9 ns/op	        45.20 cost-ns/op	       659.7 native-ns/op	     512 B/op	       3 allocs/op
+BenchmarkCostAmortizedCache 	16666424	       696.2 ns/op	        37.53 cost-ns/op	       658.6 native-ns/op	     512 B/op	       3 allocs/op
+BenchmarkCostAmortizedCache 	17547967	       689.9 ns/op	        30.71 cost-ns/op	       659.2 native-ns/op	     512 B/op	       3 allocs/op
+PASS
+ok  	callbacks	151.684s
