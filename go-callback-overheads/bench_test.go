@@ -62,6 +62,32 @@ func BenchmarkCostWithoutCaching(b *testing.B) {
 	reportVsNative(b)
 }
 
+// BenchmarkCostNaive is BenchmarkCostAmortizedCache with the JIT tier
+// bypassed: the same statement, compiled once, executed through
+// Statement.call, the reflect fallback the compiler builds for
+// bindings outside the shape table. It takes the same
+// func(map[string]any) (any, error) shape and reads its variable off
+// whatever stack it is handed, so the only difference between the two
+// is reflect.Value.Call against the direct call. cost-ns/op is
+// (naive - native).
+func BenchmarkCostNaive(b *testing.B) {
+	rt := benchRuntime(b)
+	call, err := (&Parser{}).Parse(`return NewRequest("GET", url);`)
+	if err != nil {
+		b.Fatal(err)
+	}
+	s, err := rt.compiler.Compile(call)
+	if err != nil {
+		b.Fatal(err)
+	}
+	fn := compiledFunc(s.call)
+	stack := map[string]any{"url": "https://example.com/index.html"}
+	for b.Loop() {
+		sinkReq, sinkErr = Exec[*http.Request](fn, stack)
+	}
+	reportVsNative(b)
+}
+
 // BenchmarkCostAmortizedCache executes the once-compiled statement,
 // reused verbatim against the stack: the cost of every consecutive run.
 // cost-ns/op is (cached - native), the amortized overhead of going

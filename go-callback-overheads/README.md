@@ -7,11 +7,9 @@ expression string. The question the repository answers is what that
 costs against calling the function directly, and how much of the cost
 can be removed.
 
-The answer, measured below: with a shape-table JIT over the bound
-function, rerunning a cached statement costs 38ns and zero allocations
-on top of the native `http.NewRequest` call. Before the JIT, when every
-execution went through `reflect.Value.Call`, the same run cost 740ns
-and two allocations on top of native.
+The answer is in the results table: a shape-table JIT over the bound
+function reruns a cached statement with no allocations on top of the
+native `http.NewRequest` call, against the reflect path it replaces.
 
 ## Design requirements
 
@@ -70,8 +68,8 @@ table is additive: one shape type and one constructor case.
 
 **Reflect fallback (compiler.go).** The prebuilt `[]reflect.Value`
 argument slice, variable slots patched from the stack, one `fn.Call`.
-This tier costs what the pre-JIT package did: ~740ns and two
-allocations over native per call.
+This tier is what the package did before the JIT, and what
+BenchmarkCostNaive measures.
 
 A JIT'd compiled func keeps no per-call state and is safe for
 concurrent use. The reflect fallback reuses its argument slice between
@@ -135,66 +133,46 @@ baseline is not inlined into the loop body. The sweep runs with
 `-benchtime 10s -count 3 -benchmem`; the profile job repeats
 BenchmarkCostAmortizedCache with `-cpuprofile` and `-memprofile`.
 
-There are exactly three benchmarks. All of them run the statement
+There are exactly four benchmarks. All of them run the statement
 `return NewRequest("GET", url);` with the compiled form reused verbatim
 between executions against a stack holding the url:
 
-| Benchmark          | Measures                                              |
-|--------------------|-------------------------------------------------------|
-| Native             | the direct Go call the statement compiles down to     |
-| CostWithoutCaching | parse + compile + execute per op, bypassing the cache |
-| CostAmortizedCache | execution of the once-compiled statement per op       |
+| Benchmark          | Measures                                                 |
+|--------------------|----------------------------------------------------------|
+| Native             | the direct Go call the statement compiles down to        |
+| CostWithoutCaching | parse + compile + execute per op, bypassing the cache    |
+| CostNaive          | the once-compiled statement run through the reflect tier |
+| CostAmortizedCache | the once-compiled statement run through the JIT tier     |
+
+CostNaive and CostAmortizedCache are the same compiled Statement over
+the same binding, taking the same `func(map[string]any) (any, error)`
+and resolving the variable from whatever stack they are handed. The
+only difference is `Statement.call`, which builds the argument slice
+and goes through `reflect.Value.Call`, against the JIT'd direct call.
 
 Each cost benchmark times its own native baseline inline: after the
 measured loop ends (`b.Loop` stops the timer, so the extra work is not
 measured), it runs `b.N` iterations of `http.NewRequest` under its own
 stopwatch and reports `native-ns/op` alongside `cost-ns/op`, the
 statement's cost over native. CostWithoutCaching's cost-ns/op is
-(no-cache - native), the price of parsing and compilation;
-CostAmortizedCache's is (cached - native), the amortized overhead of
-going through the VM at all. The baseline includes neither the stack
-map lookup nor the type assertion, so both count toward the VM's cost.
-
-### Results
-
-`-benchtime 10s -count 3`, pinned, Intel N150, go1.27.0 (middle run of
-three; the raw counts repeat within 2%):
-
-```
-BenchmarkNative                 667.6 ns/op                                            512 B/op   3 allocs/op
-BenchmarkCostWithoutCaching    2079 ns/op    1402 cost-ns/op    677.1 native-ns/op    1088 B/op  11 allocs/op
-BenchmarkCostAmortizedCache     696.2 ns/op    37.53 cost-ns/op  658.6 native-ns/op    512 B/op   3 allocs/op
-```
-
-The memory profile of the cached path attributes every allocation to
-`net/http.NewRequestWithContext` and `net/url.parse`; the VM's own
-frames (`Exec`, the JIT closure) allocate nothing.
-
-### What the optimization pass established
-
-Numbers from the same machine and method, before and after the JIT:
-
-- The entire gap between the cached VM and native was
-  `reflect.Value.Call`. A no-op with the NewRequest signature cost
-  659ns and 2 allocations through reflect (the argument frame via
-  `reflect.unsafe_New` and the results slice); the cached VM ran at
-  1348ns against a 607ns native call, and the VM machinery around the
-  reflect call accounted for only ~80ns of the 741ns overhead.
-- Replacing the reflect call with the layout-class cast took the
-  amortized cost from 741ns to 38ns and from +2 allocations (+64 B) to
-  zero. What remains is the stack map lookup, the string type
-  assertion, the closure indirection and the result boxing.
-- Resolving a string variable from the stack costs about what doing it
-  by hand does: the pre-JIT sweep measured 50ns between Native and
-  NativeStack (the same call with a `map[string]any` read in front),
-  and the whole cached statement now costs 38ns over the bare call.
-- Parsing allocations dropped from 9 to 2 per statement by returning
-  string literals as substrings of the source when they contain no
-  escape, and by parking the argument list in a `[4]arg` array inside
-  the callExpr. The uncached path's 8 allocations over native are the
-  parsed call, the Statement with its reflect argument slots for the
-  fallback tier, and the JIT closure.
+(no-cache - native), the price of parsing and compilation; CostNaive's
+is (reflect - native) and CostAmortizedCache's is (cached - native),
+the amortized overhead of going through the VM on either tier. The
+baseline includes neither the stack map lookup nor the type assertion,
+so both count toward the VM's cost.
 
 Artifacts: `bench.txt` (raw sweep), `cpu.out`/`mem.out` with the
 `callbacks.test` binary for `go tool pprof`. Reproduce with
 `atkins save` and `atkins profile`.
+
+### Results
+
+`benchstat bench.txt`, medians of the sweep, pinned, Intel N150,
+go1.27.0:
+
+| Benchmark          |    sec/op |     B/op | allocs/op | cost-sec/op | native-sec/op |
+|--------------------|----------:|---------:|----------:|------------:|--------------:|
+| Native             |    600.7n |    512.0 |     3.000 |           - |             - |
+| CostWithoutCaching |    1.785µ |  1.062Ki |     11.00 |      1.187µ |        587.6n |
+| CostNaive          |    1.303µ |    576.0 |     5.000 |      692.6n |        596.6n |
+| CostAmortizedCache |    633.2n |    512.0 |     3.000 |      25.86n |        612.7n |
