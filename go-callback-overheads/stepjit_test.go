@@ -438,3 +438,58 @@ func TestAllocationBudget(t *testing.T) {
 		t.Errorf("program allocates %.0f/run, native %.0f, budget %.0f", got, want, want+1)
 	}
 }
+
+// TestReadCountSeesFieldReads guards the analysis that decides whether a
+// producer can be spliced into its reader and its slot dropped.
+//
+// req.Header is a read of req. Missing it undercounts, and a name read
+// once directly and once through a field then looked read-once: the
+// producer was spliced into the direct read and its statement dropped,
+// leaving the field read pointing at a slot nothing writes. It failed
+// safe only because the argument compiler happened to report the
+// missing slot, which is not a guarantee.
+func TestReadCountSeesFieldReads(t *testing.T) {
+	rt := pairRuntime(t)
+	if err := rt.Bind("both", func(r *http.Request, h *url.URL) (*url.URL, error) {
+		return &url.URL{Path: r.URL.Path + "|" + h.Path}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	const src = `
+		req := http.NewRequest("GET", "/p");
+		u := both(req, req.URL);
+		json.NewEncoder(dest).Encode(u.Path);
+	`
+	prog, err := (&Parser{}).Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := rt.compiler.compileProgram(prog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reads := map[int]int{}
+	for i := range p.stmts {
+		if p.stmts[i].call != nil {
+			countReads(p.stmts[i].call, reads)
+		}
+	}
+	if reads[0] != 2 {
+		t.Errorf("req counted %d reads, want 2 (one direct, one through a field)", reads[0])
+	}
+
+	jit, slow := compilePair(t, rt, src)
+	var a, b bytes.Buffer
+	if _, err := jit(nil, &a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := slow(nil, &b); err != nil {
+		t.Fatal(err)
+	}
+	if a.String() != b.String() {
+		t.Errorf("%q (jit) vs %q (reflect)", a.String(), b.String())
+	}
+	if got, want := a.String(), "\"/p|/p\"\n"; got != want {
+		t.Errorf("dest = %q, want %q", got, want)
+	}
+}

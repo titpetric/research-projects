@@ -187,6 +187,7 @@ type (
 	stPP_E   = func(unsafe.Pointer, unsafe.Pointer) ifacePair
 	stII_E   = func(ifacePair, ifacePair) ifacePair
 	stSS_E   = func(string, string) ifacePair
+	stPP_PE  = func(unsafe.Pointer, unsafe.Pointer) (unsafe.Pointer, ifacePair)
 )
 
 // callNode builds the node for one call from the nodes of its
@@ -343,6 +344,24 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 				return err
 			}
 			return asError(f(p0))
+		}}, true
+
+	case "PP_PE":
+		f, a0, a1 := castFn[stPP_PE](fptr), a[0].P, a[1].P
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			p0, err := a0(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			p1, err := a1(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			p, e := f(p0, p1)
+			if err := asError(e); err != nil {
+				return nil, err
+			}
+			return p, nil
 		}}, true
 
 	case "PP_E":
@@ -532,8 +551,17 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 	return stmts, live, writes, splices, nil
 }
 
+// countReads tallies how many times each name is read, which decides
+// whether its producer can be spliced into the reader and the slot
+// dropped. It descends through a field, because req.Header is a read of
+// req: missing those undercounts, and a name read once directly and
+// once through a field would have its producer spliced away while the
+// field read still pointed at the dropped slot.
 func countReads(c *vmCall, reads map[int]int) {
 	for _, a := range c.args {
+		for a.kind == vaField {
+			a = a.src
+		}
 		switch a.kind {
 		case vaSlot:
 			reads[a.slot]++
@@ -569,6 +597,9 @@ func findSplice(c *vmCall, slot int, splices map[*vmArg]*vmCall) *vmArg {
 // subCall is the call an argument evaluates, whether it was written
 // nested or spliced in by planInline.
 func subCall(a *vmArg, splices map[*vmArg]*vmCall) *vmCall {
+	for a.kind == vaField {
+		a = a.src
+	}
 	if a.kind == vaCall {
 		return a.sub
 	}
@@ -584,12 +615,12 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 	if s.out < 0 {
 		// The result is dropped, but the call still runs and its error
 		// still ends the program.
-		return dropNode(n), nil
+		return c.dropped(n)
 	}
 
 	field, ok := c.slotOf[s.out]
 	if !ok {
-		return dropNode(n), nil
+		return c.dropped(n)
 	}
 	off := c.offs[field]
 	if s.ret {
@@ -641,7 +672,17 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 	return nil, fmt.Errorf("a result of class %s cannot be stored", n.class)
 }
 
-// dropNode runs a node for its effects and discards its value.
+// dropped wraps a node whose value nothing binds, reporting a class
+// that cannot be run rather than returning a nil closure.
+func (c *jitCompiler) dropped(n node) (nodeE, error) {
+	if e := dropNode(n); e != nil {
+		return e, nil
+	}
+	return nil, fmt.Errorf("a result of class %s cannot be discarded", n.class)
+}
+
+// dropNode runs a node for its effects and discards its value. It
+// returns nil for a class it cannot run, which the caller reports.
 func dropNode(n node) nodeE {
 	switch n.class {
 	case lNone:
@@ -655,10 +696,11 @@ func dropNode(n node) nodeE {
 	case lStr:
 		f := n.S
 		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
-	default:
+	case lIface:
 		f := n.I
 		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
 	}
+	return nil
 }
 
 // exprNode compiles one call and its arguments.
@@ -768,9 +810,15 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 	case vaField:
 		return c.fieldNode(a, pt, cl)
 
-	default:
+	case vaStack, vaDest:
 		return c.dynamicNode(a, pt, cl)
 	}
+	// Every kind is named above. Reaching here means a new one was
+	// added without a case, and the previous shape of this switch sent
+	// it to dynamicNode, which looked up the empty name, found nothing
+	// and produced a nil interface: a wrong answer with no error. That
+	// is what adding vaField did.
+	return node{}, fmt.Errorf("argument kind %d has no node", a.kind)
 }
 
 // fieldNode reads one struct field out of a pointer. The offset is

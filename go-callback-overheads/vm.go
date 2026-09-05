@@ -460,6 +460,9 @@ func (c *Compiler) compileArg(slots map[string]int, env map[string]reflect.Type,
 		// and its type is only known when it is read.
 		return &vmArg{kind: vaStack, name: a.str, typ: pt, iface: -1}, nil
 	}
+	if !v.IsValid() {
+		return nil, fmt.Errorf("compile: %s argument %d: unsupported literal", name, pos+1)
+	}
 	if !v.Type().AssignableTo(pt) {
 		return nil, fmt.Errorf("compile: %s argument %d: cannot use %s as %s", name, pos+1, v.Type(), pt)
 	}
@@ -570,13 +573,14 @@ func (a *vmArg) get(slots, frame []reflect.Value, ifaces []ifacePair, stack map[
 			return reflect.Zero(a.typ), fmt.Errorf("exec: dest is only set by Scan")
 		}
 		return a.dynamic(dest, ifaces, "dest")
-	default: // vaStack
+	case vaStack:
 		v, ok := stack[a.name]
 		if !ok || v == nil {
 			return reflect.Zero(a.typ), nil
 		}
 		return a.dynamic(v, ifaces, a.name)
 	}
+	return reflect.Value{}, fmt.Errorf("exec: argument kind %d cannot be resolved", a.kind)
 }
 
 // dynamic resolves a value whose type is only known now: from the
