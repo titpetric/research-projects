@@ -3,6 +3,7 @@ package callbacks
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"unsafe"
 	_ "unsafe" // for go:linkname
 )
@@ -57,7 +58,30 @@ const (
 	lSlice        // three words
 	lErr          // a trailing error result, two words
 	lNone         // a call with no result other than a possible error
+
+	// Scalars. Each width is its own class because the cast that makes
+	// a direct call needs the exact Go type: an int32 parameter is four
+	// bytes where an int64 is eight, and a float travels in a different
+	// register file from an integer of the same width.
+	lBool
+	lI8
+	lI16
+	lI32
+	lI64
+	lU8
+	lU16
+	lU32
+	lU64
+	lF32
+	lF64
 )
+
+// scalar reports whether a class travels through the node tree as a
+// machine word rather than as a pointer, string, interface or slice.
+func (l layout) scalar() bool { return l >= lBool }
+
+// float reports whether a scalar class is carried as a float64.
+func (l layout) float() bool { return l == lF32 || l == lF64 }
 
 func layoutOf(t reflect.Type) layout {
 	switch t.Kind() {
@@ -69,6 +93,41 @@ func layoutOf(t reflect.Type) layout {
 		return lIface
 	case reflect.Slice:
 		return lSlice
+	case reflect.Bool:
+		return lBool
+	case reflect.Int8:
+		return lI8
+	case reflect.Int16:
+		return lI16
+	case reflect.Int32:
+		return lI32
+	case reflect.Int64:
+		return lI64
+	case reflect.Uint8:
+		return lU8
+	case reflect.Uint16:
+		return lU16
+	case reflect.Uint32:
+		return lU32
+	case reflect.Uint64:
+		return lU64
+	case reflect.Float32:
+		return lF32
+	case reflect.Float64:
+		return lF64
+	case reflect.Int:
+		// int and uint are int64 and uint64 on a 64 bit platform and
+		// int32 and uint32 on a 32 bit one, so the class follows the
+		// size rather than the kind.
+		if t.Size() == 8 {
+			return lI64
+		}
+		return lI32
+	case reflect.Uint, reflect.Uintptr:
+		if t.Size() == 8 {
+			return lU64
+		}
+		return lU32
 	}
 	return lBad
 }
@@ -87,6 +146,28 @@ func (l layout) String() string {
 		return "E"
 	case lNone:
 		return ""
+	case lBool:
+		return "b"
+	case lI8:
+		return "i8"
+	case lI16:
+		return "i16"
+	case lI32:
+		return "i32"
+	case lI64:
+		return "i64"
+	case lU8:
+		return "u8"
+	case lU16:
+		return "u16"
+	case lU32:
+		return "u32"
+	case lU64:
+		return "u64"
+	case lF32:
+		return "f32"
+	case lF64:
+		return "f64"
 	}
 	return "?"
 }
@@ -118,6 +199,13 @@ type (
 	nodeI func(f unsafe.Pointer, stack map[string]any, dest any) (ifacePair, error)
 	nodeL func(f unsafe.Pointer, stack map[string]any, dest any) (sliceHdr, error)
 	nodeE func(f unsafe.Pointer, stack map[string]any, dest any) error
+
+	// nodeN carries every integer and bool class as the bits of its own
+	// width, zero-extended. One closure type covers all of them because
+	// the exact Go type is only needed where the call is made, and the
+	// shape case there casts back. nodeF does the same for floats.
+	nodeN func(f unsafe.Pointer, stack map[string]any, dest any) (uint64, error)
+	nodeF func(f unsafe.Pointer, stack map[string]any, dest any) (float64, error)
 )
 
 // node is one compiled expression. Exactly one closure is set, named by
@@ -129,6 +217,85 @@ type node struct {
 	I     nodeI
 	L     nodeL
 	E     nodeE
+	N     nodeN
+	F     nodeF
+}
+
+// loadN reads a scalar of class cl out of the frame as raw bits.
+func loadN(cl layout, at unsafe.Pointer) uint64 {
+	switch cl {
+	case lBool:
+		if *(*bool)(at) {
+			return 1
+		}
+		return 0
+	case lI8:
+		return uint64(uint8(*(*int8)(at)))
+	case lI16:
+		return uint64(uint16(*(*int16)(at)))
+	case lI32:
+		return uint64(uint32(*(*int32)(at)))
+	case lU8:
+		return uint64(*(*uint8)(at))
+	case lU16:
+		return uint64(*(*uint16)(at))
+	case lU32:
+		return uint64(*(*uint32)(at))
+	}
+	return *(*uint64)(at) // lI64, lU64
+}
+
+func storeN(cl layout, at unsafe.Pointer, v uint64) {
+	switch cl {
+	case lBool:
+		*(*bool)(at) = v != 0
+	case lI8:
+		*(*int8)(at) = int8(uint8(v))
+	case lI16:
+		*(*int16)(at) = int16(uint16(v))
+	case lI32:
+		*(*int32)(at) = int32(uint32(v))
+	case lU8:
+		*(*uint8)(at) = uint8(v)
+	case lU16:
+		*(*uint16)(at) = uint16(v)
+	case lU32:
+		*(*uint32)(at) = uint32(v)
+	default:
+		*(*uint64)(at) = v
+	}
+}
+
+func loadF(cl layout, at unsafe.Pointer) float64 {
+	if cl == lF32 {
+		return float64(*(*float32)(at))
+	}
+	return *(*float64)(at)
+}
+
+func storeF(cl layout, at unsafe.Pointer, v float64) {
+	if cl == lF32 {
+		*(*float32)(at) = float32(v)
+		return
+	}
+	*(*float64)(at) = v
+}
+
+// scalarBits turns a compile-time constant into the representation
+// nodeN and nodeF carry.
+func scalarBits(cl layout, v reflect.Value) (uint64, float64) {
+	switch cl {
+	case lBool:
+		if v.Bool() {
+			return 1, 0
+		}
+		return 0, 0
+	case lI8, lI16, lI32, lI64:
+		return uint64(v.Int()), 0
+	case lU8, lU16, lU32, lU64:
+		return v.Uint(), 0
+	}
+	return 0, v.Float()
 }
 
 // jitProgram is a program whose every call JITs.
@@ -190,9 +357,192 @@ type (
 	stPP_PE  = func(unsafe.Pointer, unsafe.Pointer) (unsafe.Pointer, ifacePair)
 )
 
+// nPE and the helpers beside it are the scalar call families. They are
+// generic over the parameter's Go type so one body covers every width:
+// the cast needs the exact type, but nothing else does.
+func nPE[T any](fptr unsafe.Pointer, a0 nodeN, conv func(uint64) T) node {
+	f := castFn[func(T) (unsafe.Pointer, ifacePair)](fptr)
+	return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+		n, err := a0(fr, st, d)
+		if err != nil {
+			return nil, err
+		}
+		p, e := f(conv(n))
+		if err := asError(e); err != nil {
+			return nil, err
+		}
+		return p, nil
+	}}
+}
+
+func nE[T any](fptr unsafe.Pointer, a0 nodeN, conv func(uint64) T) node {
+	f := castFn[func(T) ifacePair](fptr)
+	return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+		n, err := a0(fr, st, d)
+		if err != nil {
+			return err
+		}
+		return asError(f(conv(n)))
+	}}
+}
+
+func fPE[T any](fptr unsafe.Pointer, a0 nodeF, conv func(float64) T) node {
+	f := castFn[func(T) (unsafe.Pointer, ifacePair)](fptr)
+	return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+		v, err := a0(fr, st, d)
+		if err != nil {
+			return nil, err
+		}
+		p, e := f(conv(v))
+		if err := asError(e); err != nil {
+			return nil, err
+		}
+		return p, nil
+	}}
+}
+
+func fE[T any](fptr unsafe.Pointer, a0 nodeF, conv func(float64) T) node {
+	f := castFn[func(T) ifacePair](fptr)
+	return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+		v, err := a0(fr, st, d)
+		if err != nil {
+			return err
+		}
+		return asError(f(conv(v)))
+	}}
+}
+
+// pN is a pointer parameter and a scalar result, the shape a getter
+// method has.
+func pN[T any](fptr unsafe.Pointer, a0 nodeP, cl layout, up func(T) uint64) node {
+	f := castFn[func(unsafe.Pointer) T](fptr)
+	return node{class: cl, N: func(fr unsafe.Pointer, st map[string]any, d any) (uint64, error) {
+		p, err := a0(fr, st, d)
+		if err != nil {
+			return 0, err
+		}
+		return up(f(p)), nil
+	}}
+}
+
+func pF[T any](fptr unsafe.Pointer, a0 nodeP, cl layout, up func(T) float64) node {
+	f := castFn[func(unsafe.Pointer) T](fptr)
+	return node{class: cl, F: func(fr unsafe.Pointer, st map[string]any, d any) (float64, error) {
+		p, err := a0(fr, st, d)
+		if err != nil {
+			return 0, err
+		}
+		return up(f(p)), nil
+	}}
+}
+
+// scalarCall covers a call whose only parameter is a scalar. res is the
+// result half of the shape key.
+func scalarCall(fptr unsafe.Pointer, in layout, res string, a node) (node, bool) {
+	switch res {
+	case "PE":
+		switch in {
+		case lBool:
+			return nPE(fptr, a.N, func(n uint64) bool { return n != 0 }), true
+		case lI8:
+			return nPE(fptr, a.N, func(n uint64) int8 { return int8(uint8(n)) }), true
+		case lI16:
+			return nPE(fptr, a.N, func(n uint64) int16 { return int16(uint16(n)) }), true
+		case lI32:
+			return nPE(fptr, a.N, func(n uint64) int32 { return int32(uint32(n)) }), true
+		case lI64:
+			return nPE(fptr, a.N, func(n uint64) int64 { return int64(n) }), true
+		case lU8:
+			return nPE(fptr, a.N, func(n uint64) uint8 { return uint8(n) }), true
+		case lU16:
+			return nPE(fptr, a.N, func(n uint64) uint16 { return uint16(n) }), true
+		case lU32:
+			return nPE(fptr, a.N, func(n uint64) uint32 { return uint32(n) }), true
+		case lU64:
+			return nPE(fptr, a.N, func(n uint64) uint64 { return n }), true
+		case lF32:
+			return fPE(fptr, a.F, func(v float64) float32 { return float32(v) }), true
+		case lF64:
+			return fPE(fptr, a.F, func(v float64) float64 { return v }), true
+		}
+	case "E":
+		switch in {
+		case lBool:
+			return nE(fptr, a.N, func(n uint64) bool { return n != 0 }), true
+		case lI8:
+			return nE(fptr, a.N, func(n uint64) int8 { return int8(uint8(n)) }), true
+		case lI16:
+			return nE(fptr, a.N, func(n uint64) int16 { return int16(uint16(n)) }), true
+		case lI32:
+			return nE(fptr, a.N, func(n uint64) int32 { return int32(uint32(n)) }), true
+		case lI64:
+			return nE(fptr, a.N, func(n uint64) int64 { return int64(n) }), true
+		case lU8:
+			return nE(fptr, a.N, func(n uint64) uint8 { return uint8(n) }), true
+		case lU16:
+			return nE(fptr, a.N, func(n uint64) uint16 { return uint16(n) }), true
+		case lU32:
+			return nE(fptr, a.N, func(n uint64) uint32 { return uint32(n) }), true
+		case lU64:
+			return nE(fptr, a.N, func(n uint64) uint64 { return n }), true
+		case lF32:
+			return fE(fptr, a.F, func(v float64) float32 { return float32(v) }), true
+		case lF64:
+			return fE(fptr, a.F, func(v float64) float64 { return v }), true
+		}
+	}
+	return node{}, false
+}
+
+// ptrScalarCall covers a pointer parameter and a scalar result.
+func ptrScalarCall(fptr unsafe.Pointer, out layout, a node) (node, bool) {
+	switch out {
+	case lBool:
+		return pN(fptr, a.P, out, func(v bool) uint64 {
+			if v {
+				return 1
+			}
+			return 0
+		}), true
+	case lI8:
+		return pN(fptr, a.P, out, func(v int8) uint64 { return uint64(uint8(v)) }), true
+	case lI16:
+		return pN(fptr, a.P, out, func(v int16) uint64 { return uint64(uint16(v)) }), true
+	case lI32:
+		return pN(fptr, a.P, out, func(v int32) uint64 { return uint64(uint32(v)) }), true
+	case lI64:
+		return pN(fptr, a.P, out, func(v int64) uint64 { return uint64(v) }), true
+	case lU8:
+		return pN(fptr, a.P, out, func(v uint8) uint64 { return uint64(v) }), true
+	case lU16:
+		return pN(fptr, a.P, out, func(v uint16) uint64 { return uint64(v) }), true
+	case lU32:
+		return pN(fptr, a.P, out, func(v uint32) uint64 { return uint64(v) }), true
+	case lU64:
+		return pN(fptr, a.P, out, func(v uint64) uint64 { return v }), true
+	case lF32:
+		return pF(fptr, a.P, out, func(v float32) float64 { return float64(v) }), true
+	case lF64:
+		return pF(fptr, a.P, out, func(v float64) float64 { return v }), true
+	}
+	return node{}, false
+}
+
 // callNode builds the node for one call from the nodes of its
 // arguments, or reports that the shape is outside the table.
 func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
+	if i := strings.IndexByte(key, '_'); i > 0 && len(a) == 1 {
+		if a[0].class.scalar() {
+			if n, ok := scalarCall(fptr, a[0].class, key[i+1:], a[0]); ok {
+				return n, true
+			}
+		}
+		if a[0].class == lPtr {
+			if out, ok := classOf(key[i+1:]); ok && out.scalar() {
+				return ptrScalarCall(fptr, out, a[0])
+			}
+		}
+	}
 	switch key {
 	case "P_L":
 		f, a0 := castFn[stP_L](fptr), a[0].P
@@ -409,6 +759,16 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 	return node{}, false
 }
 
+// classOf is the inverse of layout.String, for reading a shape key.
+func classOf(s string) (layout, bool) {
+	for l := lBool; l <= lF64; l++ {
+		if l.String() == s {
+			return l, true
+		}
+	}
+	return lBad, false
+}
+
 // jitCompiler holds the state of one program's compilation.
 type jitCompiler struct {
 	slotOf map[int]int // vmProgram slot -> frame field index
@@ -435,12 +795,6 @@ type jitCompiler struct {
 func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 	if p.polymorphic {
 		return nil, fmt.Errorf("a name is reassigned at a different type")
-	}
-	if len(p.inits) > 0 {
-		// A var holds a value of any type, including the numeric ones
-		// that have no layout class, and the closure tree has no store
-		// for it.
-		return nil, fmt.Errorf("a var declaration is not in the table")
 	}
 
 	stmts, live, writes, splices, err := planInline(p)
@@ -491,6 +845,9 @@ type plannedStmt struct {
 	call *vmCall
 	out  int // frame slot, -1 to discard
 	ret  bool
+
+	// lit is a literal assignment, which has no call to compile.
+	lit reflect.Value
 }
 
 // planInline drops a statement whose single result is read exactly once
@@ -508,7 +865,12 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 	for i := range p.stmts {
 		s := &p.stmts[i]
 		if s.lit.IsValid() {
-			return nil, nil, nil, nil, fmt.Errorf("a literal assignment is not in the table")
+			out := -1
+			if len(s.out) > 0 {
+				out = s.out[0]
+			}
+			stmts = append(stmts, plannedStmt{lit: s.lit, out: out})
+			continue
 		}
 		if s.call == nil {
 			continue // a bare "return;" leaves the program without a value
@@ -525,14 +887,19 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 
 	reads := map[int]int{}
 	for _, s := range stmts {
-		countReads(s.call, reads)
+		if s.call != nil {
+			countReads(s.call, reads)
+		}
 	}
 
 	splices := map[*vmArg]*vmCall{}
 	for i := 0; i+1 < len(stmts); i++ {
 		s := stmts[i]
-		if s.ret || s.out < 0 || s.call.nres != 1 || reads[s.out] != 1 {
+		if s.call == nil || s.ret || s.out < 0 || s.call.nres != 1 || reads[s.out] != 1 {
 			continue
+		}
+		if stmts[i+1].call == nil {
+			continue // a literal assignment has no argument to splice into
 		}
 		// Only into the statement immediately after. Every statement
 		// runs a call, so moving a producer past one would reorder two
@@ -548,6 +915,14 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 
 	live := map[int]bool{}
 	writes := map[int]int{}
+	// A var declaration puts a name in scope whether or not anything
+	// assigns it, so its slot is live from the start. The frame comes
+	// back zeroed, which is exactly the zero value the declaration
+	// promises, so there is nothing to run for it.
+	for _, in := range p.inits {
+		live[in.slot] = true
+		writes[in.slot]++
+	}
 	for _, s := range stmts {
 		if s.out >= 0 {
 			live[s.out] = true
@@ -617,9 +992,27 @@ func subCall(a *vmArg, splices map[*vmArg]*vmCall) *vmCall {
 
 // stmtNode compiles one statement into the closure the program runs.
 func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
-	n, err := c.exprNode(s.call)
-	if err != nil {
-		return nil, err
+	var n node
+	if s.lit.IsValid() {
+		field, ok := c.slotOf[s.out]
+		if !ok {
+			return nil, fmt.Errorf("a literal is assigned to a name with no slot")
+		}
+		cl := layoutOf(c.types[field])
+		if cl == lBad {
+			return nil, fmt.Errorf("a literal of type %s has no layout class", c.types[field])
+		}
+		lit, err := constNode(cl, s.lit)
+		if err != nil {
+			return nil, err
+		}
+		n = lit
+	} else {
+		var err error
+		n, err = c.exprNode(s.call)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if s.out < 0 {
 		// The result is dropped, but the call still runs and its error
@@ -636,6 +1029,29 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		jp.retType, jp.retOff = c.types[field], off
 	}
 
+	if n.class.scalar() {
+		cl := n.class
+		if cl.float() {
+			f := n.F
+			return func(fr unsafe.Pointer, st map[string]any, d any) error {
+				v, err := f(fr, st, d)
+				if err != nil {
+					return err
+				}
+				storeF(cl, unsafe.Add(fr, off), v)
+				return nil
+			}, nil
+		}
+		f := n.N
+		return func(fr unsafe.Pointer, st map[string]any, d any) error {
+			v, err := f(fr, st, d)
+			if err != nil {
+				return err
+			}
+			storeN(cl, unsafe.Add(fr, off), v)
+			return nil
+		}, nil
+	}
 	switch n.class {
 	case lPtr:
 		f := n.P
@@ -693,6 +1109,14 @@ func (c *jitCompiler) dropped(n node) (nodeE, error) {
 // dropNode runs a node for its effects and discards its value. It
 // returns nil for a class it cannot run, which the caller reports.
 func dropNode(n node) nodeE {
+	if n.class.scalar() {
+		if n.class.float() {
+			f := n.F
+			return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+		}
+		f := n.N
+		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+	}
 	switch n.class {
 	case lNone:
 		return n.E
@@ -797,16 +1221,18 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 					return ifacePair{tab: tab, data: *(*unsafe.Pointer)(unsafe.Add(fr, off))}, nil
 				}}, nil
 			}
-			// Stored indirectly: the interface points at the slot rather
-			// than a copy, which is the allocation this saves. Only
-			// legal while the slot is written once, since the frame
-			// outlives the call and the callee may keep the interface.
-			if c.writes[a.slot] != 1 {
-				return node{}, fmt.Errorf("a name assigned more than once cannot fill a %s parameter", pt)
+			// Stored indirectly. Pointing the interface at the slot
+			// rather than a copy saves the allocation, but is only
+			// legal while the slot is written once: the frame outlives
+			// the call and the callee may keep the interface. A slot
+			// written more than once, and any scalar, is copied
+			// instead, which is what the Go compiler does anyway.
+			if c.writes[a.slot] == 1 && !layoutOf(st).scalar() {
+				return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+					return ifacePair{tab: tab, data: unsafe.Add(fr, off)}, nil
+				}}, nil
 			}
-			return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
-				return ifacePair{tab: tab, data: unsafe.Add(fr, off)}, nil
-			}}, nil
+			return c.toIface(slotNode(layoutOf(st), off), st, pt)
 		}
 		if layoutOf(st) != cl {
 			return node{}, fmt.Errorf("a %s name cannot fill a %s parameter", layoutOf(st), cl)
@@ -869,6 +1295,25 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 	}
 
 	var out node
+	if fcl.scalar() {
+		if fcl.float() {
+			out = node{class: fcl, F: func(fr unsafe.Pointer, st map[string]any, d any) (float64, error) {
+				at, err := load(fr, st, d)
+				if err != nil {
+					return 0, err
+				}
+				return loadF(fcl, at), nil
+			}}
+		} else {
+			out = node{class: fcl, N: func(fr unsafe.Pointer, st map[string]any, d any) (uint64, error) {
+				at, err := load(fr, st, d)
+				if err != nil {
+					return 0, err
+				}
+				return loadN(fcl, at), nil
+			}}
+		}
+	}
 	switch fcl {
 	case lPtr:
 		out = node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
@@ -924,6 +1369,9 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 	if !ok {
 		return node{}, fmt.Errorf("%s does not implement %s", st, pt)
 	}
+	if sub.class.scalar() {
+		return scalarIface(sub, tab)
+	}
 	switch sub.class {
 	case lPtr:
 		f := sub.P
@@ -956,7 +1404,74 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 	return node{}, fmt.Errorf("a %s result cannot become an interface", sub.class)
 }
 
+// scalarIface boxes a scalar into an interface. The data word has to
+// point at a value of the concrete width, so each class materialises
+// one of its own type; that escape is the allocation the Go compiler
+// makes at the same place.
+func scalarIface(sub node, tab unsafe.Pointer) (node, error) {
+	mk := func(box func(uint64) unsafe.Pointer) (node, error) {
+		f := sub.N
+		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
+			n, err := f(fr, s, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			return ifacePair{tab: tab, data: box(n)}, nil
+		}}, nil
+	}
+	switch sub.class {
+	case lBool:
+		return mk(func(n uint64) unsafe.Pointer { v := n != 0; return unsafe.Pointer(&v) })
+	case lI8:
+		return mk(func(n uint64) unsafe.Pointer { v := int8(uint8(n)); return unsafe.Pointer(&v) })
+	case lI16:
+		return mk(func(n uint64) unsafe.Pointer { v := int16(uint16(n)); return unsafe.Pointer(&v) })
+	case lI32:
+		return mk(func(n uint64) unsafe.Pointer { v := int32(uint32(n)); return unsafe.Pointer(&v) })
+	case lI64:
+		return mk(func(n uint64) unsafe.Pointer { v := int64(n); return unsafe.Pointer(&v) })
+	case lU8:
+		return mk(func(n uint64) unsafe.Pointer { v := uint8(n); return unsafe.Pointer(&v) })
+	case lU16:
+		return mk(func(n uint64) unsafe.Pointer { v := uint16(n); return unsafe.Pointer(&v) })
+	case lU32:
+		return mk(func(n uint64) unsafe.Pointer { v := uint32(n); return unsafe.Pointer(&v) })
+	case lU64:
+		return mk(func(n uint64) unsafe.Pointer { v := n; return unsafe.Pointer(&v) })
+	case lF32:
+		f := sub.F
+		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
+			x, err := f(fr, s, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			v := float32(x)
+			return ifacePair{tab: tab, data: unsafe.Pointer(&v)}, nil
+		}}, nil
+	case lF64:
+		f := sub.F
+		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, s, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			return ifacePair{tab: tab, data: unsafe.Pointer(&v)}, nil
+		}}, nil
+	}
+	return node{}, fmt.Errorf("a %s cannot become an interface", sub.class)
+}
+
 func slotNode(cl layout, off uintptr) node {
+	if cl.scalar() {
+		if cl.float() {
+			return node{class: cl, F: func(fr unsafe.Pointer, _ map[string]any, _ any) (float64, error) {
+				return loadF(cl, unsafe.Add(fr, off)), nil
+			}}
+		}
+		return node{class: cl, N: func(fr unsafe.Pointer, _ map[string]any, _ any) (uint64, error) {
+			return loadN(cl, unsafe.Add(fr, off)), nil
+		}}
+	}
 	switch cl {
 	case lPtr:
 		return node{class: lPtr, P: func(fr unsafe.Pointer, _ map[string]any, _ any) (unsafe.Pointer, error) {
@@ -978,6 +1493,13 @@ func slotNode(cl layout, off uintptr) node {
 }
 
 func constNode(cl layout, v reflect.Value) (node, error) {
+	if cl.scalar() {
+		n, f := scalarBits(cl, v)
+		if cl.float() {
+			return node{class: cl, F: func(unsafe.Pointer, map[string]any, any) (float64, error) { return f, nil }}, nil
+		}
+		return node{class: cl, N: func(unsafe.Pointer, map[string]any, any) (uint64, error) { return n, nil }}, nil
+	}
 	switch cl {
 	case lStr:
 		s := v.String()

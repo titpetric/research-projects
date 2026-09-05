@@ -219,26 +219,46 @@ func TestStepJITFrameSurvivesGC(t *testing.T) {
 	}
 }
 
-// TestStepJITRefusesReassignedAlias checks the guard on aliasing: a slot
-// that is written more than once cannot back an interface argument,
-// because a later write would change the value behind an interface the
-// callee may still hold. Such a program must fall back to reflect.
-func TestStepJITRefusesReassignedAlias(t *testing.T) {
+// TestStepJITReassignedSlotIsCopied pins the rule behind the aliasing.
+// An interface argument taken from a slot normally points at the slot
+// rather than a copy, which is what reaches native's allocation count.
+// That is only legal while the slot is written once: here it is written
+// twice, so the value handed to the callee must be a copy taken at the
+// call, not a window onto whatever the slot holds later.
+func TestStepJITReassignedSlotIsCopied(t *testing.T) {
 	rt := pairRuntime(t)
-	prog, err := (&Parser{}).Parse(`
-		c := http.NewRequest("GET", "/a").Cookies();
-		json.NewEncoder(dest).Encode(c);
-		c = http.NewRequest("GET", "/b").Cookies();
-	`)
-	if err != nil {
+	var kept any
+	if err := rt.Bind("keep", func(v any) (*url.URL, error) {
+		kept = v // the callee retains the interface past the call
+		return &url.URL{}, nil
+	}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := rt.compiler.compileProgram(prog)
-	if err != nil {
-		t.Fatal(err)
+	const src = `
+		s := url.Parse("/a").String();
+		keep(s);
+		s = url.Parse("/b").String();
+		json.NewEncoder(dest).Encode(s);
+	`
+	if err := rt.Supports(src); err != nil {
+		t.Fatalf("expected this to JIT: %v", err)
 	}
-	if _, err := jitCompileProgram(p); err == nil {
-		t.Fatal("a reassigned slot must not be aliased into an interface")
+	jit, slow := compilePair(t, rt, src)
+	for _, tc := range []struct {
+		name string
+		fn   CompiledFunc
+	}{{"jit", jit}, {"reflect", slow}} {
+		kept = nil
+		var dest bytes.Buffer
+		if _, err := tc.fn(nil, &dest); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if kept != "/a" {
+			t.Errorf("%s: callee kept %v, want /a: the reassignment leaked through the interface", tc.name, kept)
+		}
+		if got, want := dest.String(), "\"/b\"\n"; got != want {
+			t.Errorf("%s: dest = %q, want %q", tc.name, got, want)
+		}
 	}
 }
 

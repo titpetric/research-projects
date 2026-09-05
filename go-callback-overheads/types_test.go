@@ -217,24 +217,34 @@ func TestVarPointerAndSliceTypes(t *testing.T) {
 	}
 }
 
-// TestVarStaysOnReflect records that neither a var declaration nor a
-// literal assignment is in the shape table, so a program using one runs
-// on the reflect evaluator. Supports says so rather than leaving it to
-// be discovered in a benchmark.
-func TestVarStaysOnReflect(t *testing.T) {
+// TestScalarsJIT checks that the scalar work reaches the direct-call
+// tier rather than sending the program to the reflect evaluator: a var
+// declaration, a literal assignment, a scalar read back out of a slot,
+// a scalar argument at several widths, and a scalar boxed into an
+// interface.
+func TestScalarsJIT(t *testing.T) {
 	rt, _ := typeRuntime(t)
-	for _, src := range []string{
-		`var x int64; x = 1; json.NewEncoder(dest).Encode(x);`,
-		`x = 1; json.NewEncoder(dest).Encode(x);`,
+	for _, tc := range []struct{ name, src, want string }{
+		{"var and assign", `var x int64; x = 1; json.NewEncoder(dest).Encode(x);`, "1\n"},
+		{"inferred literal", `x = 1; json.NewEncoder(dest).Encode(x);`, "1\n"},
+		{"declared int32", `var x int32; x = 7; json.NewEncoder(dest).Encode(x);`, "7\n"},
+		{"declared float64", `var x float64; x = 2.5; json.NewEncoder(dest).Encode(x);`, "2.5\n"},
+		{"declared bool zero", `var b bool; json.NewEncoder(dest).Encode(b);`, "false\n"},
+		{"scalar argument", `var x int64; x = 3; takesI64(x); json.NewEncoder(dest).Encode(x);`, "3\n"},
+		{"literal argument", `json.NewEncoder(dest).Encode(takesInt(42));`, ""},
+		{"scalar field", `req := http.NewRequest("GET", "/"); json.NewEncoder(dest).Encode(req.ContentLength);`, "0\n"},
 	} {
-		err := rt.Supports(src)
-		if err == nil {
-			t.Errorf("%s: expected the reflect tier", src)
+		if err := rt.Supports(tc.src); err != nil {
+			t.Errorf("%s: did not JIT: %v", tc.name, err)
 			continue
 		}
-		t.Log(err)
-		if _, err := runProgram(t, rt, src); err != nil {
-			t.Errorf("%s: %v", src, err)
+		got, err := runProgram(t, rt, tc.src)
+		if err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		if tc.want != "" && got != tc.want {
+			t.Errorf("%s: dest = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }
