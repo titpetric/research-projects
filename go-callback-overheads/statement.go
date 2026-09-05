@@ -42,7 +42,7 @@ func (s *Statement) Func() CompiledFunc {
 	return s.call
 }
 
-func (s *Statement) call(stack map[string]any) (any, error) {
+func (s *Statement) call(stack map[string]any, dest any) (any, error) {
 	for i := range s.vars {
 		v, err := __get(stack, &s.vars[i])
 		if err != nil {

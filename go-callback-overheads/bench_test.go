@@ -72,11 +72,7 @@ func BenchmarkCostWithoutCaching(b *testing.B) {
 // (naive - native).
 func BenchmarkCostNaive(b *testing.B) {
 	rt := benchRuntime(b)
-	call, err := (&Parser{}).Parse(`return NewRequest("GET", url);`)
-	if err != nil {
-		b.Fatal(err)
-	}
-	s, err := rt.compiler.Compile(call)
+	s, err := compileFlat(rt, `return NewRequest("GET", url);`)
 	if err != nil {
 		b.Fatal(err)
 	}

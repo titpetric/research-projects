@@ -15,28 +15,53 @@ type binding struct {
 	raw any
 }
 
-// Compiler turns a parsed callExpr into a Statement against a set of
-// bound functions. All argument validation happens here, at compile
+// Compiler turns a parsed program into an executable form against a set
+// of bound functions. All argument validation happens here, at compile
 // time: literal types must be assignable to the parameter types of the
-// binding. Variable references are only type-checked at execution time,
-// when their value is known.
+// binding, and a method must exist on the static type of the name it is
+// called on. Names read from the caller's stack are only type-checked at
+// execution time, when their value is known.
 type Compiler struct {
 	bindings map[string]binding
 }
 
-// Compile validates the call against the binding and builds a Statement.
-func (c *Compiler) Compile(call *callExpr) (*Statement, error) {
-	b, ok := c.bindings[call.name]
+// Compile validates a program and builds the constructed func.
+//
+// A program that is one flat call keeps the original single-statement
+// path, so the shape table still applies to it and the JIT result
+// stands. Anything longer, or anything with a chained or nested call,
+// compiles to the multi-statement VM in vm.go, which is reflect only.
+func (c *Compiler) Compile(prog *program) (CompiledFunc, error) {
+	if call, ok := prog.flatCall(); ok {
+		s, err := c.compileStatement(call)
+		if err != nil {
+			return nil, err
+		}
+		return s.Func(), nil
+	}
+	p, err := c.compileProgram(prog)
+	if err != nil {
+		return nil, err
+	}
+	return CompiledFunc(p.run), nil
+}
+
+// compileStatement builds the single-call Statement: a prebuilt
+// argument slice, variable slots patched from the stack, and the JIT'd
+// direct call when the binding fits a shape.
+func (c *Compiler) compileStatement(call *callExpr) (*Statement, error) {
+	name := call.path[0]
+	b, ok := c.bindings[name]
 	if !ok {
-		return nil, fmt.Errorf("compile: unknown binding %q", call.name)
+		return nil, fmt.Errorf("compile: unknown binding %q", name)
 	}
 	fn := b.rv
 	ft := fn.Type()
 	if ft.IsVariadic() {
-		return nil, fmt.Errorf("compile: variadic binding %q not supported", call.name)
+		return nil, fmt.Errorf("compile: variadic binding %q not supported", name)
 	}
 	if len(call.args) > ft.NumIn() {
-		return nil, fmt.Errorf("compile: %s takes %d arguments, got %d", call.name, ft.NumIn(), len(call.args))
+		return nil, fmt.Errorf("compile: %s takes %d arguments, got %d", name, ft.NumIn(), len(call.args))
 	}
 
 	s := &Statement{
@@ -69,7 +94,7 @@ func (c *Compiler) Compile(call *callExpr) (*Statement, error) {
 			continue
 		}
 		if !v.Type().AssignableTo(pt) {
-			return nil, fmt.Errorf("compile: %s argument %d: cannot use %s as %s", call.name, i+1, v.Type(), pt)
+			return nil, fmt.Errorf("compile: %s argument %d: cannot use %s as %s", name, i+1, v.Type(), pt)
 		}
 		s.args[i] = v
 	}
