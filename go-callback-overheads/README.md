@@ -213,3 +213,57 @@ closures.
 compares output, errors, and what each callee received through the
 interface it was handed, so a toolchain that changes the assumptions
 fails the suite rather than the benchmark.
+
+## Open question: is the frame allocation avoidable
+
+The remaining 196.9ns is the frame allocation and the loop over four
+closures. The split is measured: running the same steps with the frame
+hoisted out of the loop costs 1924ns against 2009ns with it, one
+48 byte allocation apart, so the frame is 85ns of the 197ns.
+
+Preallocating is not possible, because a frame cannot outlive one run
+of a concurrent program. Pooling measures well:
+
+| Frame per run                | sec/op  | allocs/op |
+|------------------------------|--------:|----------:|
+| unsafeNew                    | 62.57n  |         1 |
+| sync.Pool, cleared on reuse  | 22.85n  |         0 |
+| sync.Pool, not cleared       | 20.39n  |         0 |
+
+That is 40ns and one allocation, and it is not currently claimable.
+Pooling and the aliasing described above are mutually exclusive: an
+interface argument taken from a slot hands a pointer into the frame to
+the callee, and nothing proves the callee does not keep it past the
+run. Dropping the alias to allow pooling trades one allocation for
+another, 22.85n plus boxing the slice against 62.57n and no box.
+
+Pooling is a clean win for a program with no aliased slot, which is
+every program whose interface arguments are pointer-shaped, since those
+are stored directly and never point at the frame. It is not implemented.
+
+One measurement to be careful with. Under `-gcflags=all=-l` the numbers
+above show 6 allocations for both the program and its native
+equivalent. With inlining enabled native drops to 5 allocations and 560
+B/op against 712, because escape analysis stops boxing `cookies`. The
+allocation parity in the table holds for the flags the benchmarks use,
+not for an ordinary build, where the frame is a real extra allocation.
+Cost over native with inlining is 104.7n to 164.0n on a 545n call.
+
+Approaches not tried:
+
+- Reuse slots whose live ranges do not overlap. In the four call
+  program `req` dies before `enc` is created and both are
+  pointer-shaped, which would take the frame from 48 to 32 bytes.
+- Fuse a step whose pointer result feeds the next step's pointer
+  parameter, when that slot is read once. The program becomes two
+  steps and one slot, at the cost of a shape table that grows with the
+  square of the shapes it already holds.
+- A per-P free list instead of `sync.Pool`.
+- Mark a binding as not retaining its arguments, at `Bind`. Aliasing
+  and pooling could then coexist, at the cost of an annotation the
+  compiler cannot check.
+
+Stack allocation is out. The frame pointer is passed to opaque
+closures, so escape analysis moves it to the heap whatever its size.
+Removing that means fusing a whole program into a single closure, which
+is the same combinatorial problem as fusing pairs.
