@@ -1,0 +1,268 @@
+package callbacks
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"runtime"
+	"testing"
+)
+
+// compilePair compiles src twice: once as the step-JIT program and once
+// as the reflect evaluator, so a test can run the same source down both
+// paths and compare. It fails when the source does not JIT, because a
+// silent fallback would make an equivalence test pass by running the
+// reflect path twice.
+func compilePair(t *testing.T, rt *Runtime, src string) (jit, slow CompiledFunc) {
+	t.Helper()
+	prog, err := (&Parser{}).Parse(src)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	p, err := rt.compiler.compileProgram(prog)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	jp := jitCompileProgram(p)
+	if jp == nil {
+		t.Fatalf("program did not JIT: %s", src)
+	}
+	return jp.run, p.run
+}
+
+func pairRuntime(t *testing.T) *Runtime {
+	t.Helper()
+	rt := NewRuntime()
+	for name, fns := range map[string]map[string]any{
+		"http": {"NewRequest": http.NewRequest},
+		"json": {"NewEncoder": json.NewEncoder},
+		"url":  {"Parse": url.Parse},
+	} {
+		if err := rt.BindScope(name, fns); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return rt
+}
+
+// TestStepJITMatchesReflect runs the same program through both tiers
+// and requires identical output. Every unsafe path in stepjit.go is
+// reachable from one of these: the frame layout, the raw stores, the
+// precomputed itabs on both the direct and indirect sides, and the
+// error words.
+func TestStepJITMatchesReflect(t *testing.T) {
+	rt := pairRuntime(t)
+
+	// A pointer slot filling an interface parameter takes the direct
+	// path; a slice slot takes the indirect one. Both are covered by
+	// recording what the callee actually received.
+	// Describing the value rather than storing it proves the callee can
+	// read through the interface it was handed: a wrong itab or data
+	// word would fault or produce nonsense here, where comparing
+	// pointers would only compare two different allocations.
+	var seen []string
+	if err := rt.Bind("record", func(v any) (*url.URL, error) {
+		switch x := v.(type) {
+		case *http.Request:
+			seen = append(seen, fmt.Sprintf("%T %s %s", x, x.Method, x.URL.Path))
+		case []*http.Cookie:
+			seen = append(seen, fmt.Sprintf("%T len=%d", x, len(x)))
+		default:
+			seen = append(seen, fmt.Sprintf("%T %v", v, v))
+		}
+		return &url.URL{Path: "/recorded"}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, src := range map[string]string{
+		"write through dest": `
+			req := http.NewRequest("GET", "/");
+			cookies := req.Cookies();
+			enc := json.NewEncoder(dest);
+			enc.Encode(cookies);
+		`,
+		"chained and nested": `
+			json.NewEncoder(dest).Encode(http.NewRequest("GET", "/").Cookies());
+		`,
+		"pointer into any (direct)": `
+			req := http.NewRequest("GET", "/");
+			u := record(req);
+			json.NewEncoder(dest).Encode(u);
+		`,
+		"slice into any (indirect)": `
+			cookies := http.NewRequest("GET", "/").Cookies();
+			u := record(cookies);
+			json.NewEncoder(dest).Encode(u);
+		`,
+		"omitted argument": `
+			json.NewEncoder(dest).Encode(url.Parse("https://example.com/a"));
+		`,
+		"string from the stack": `
+			json.NewEncoder(dest).Encode(url.Parse(link));
+		`,
+	} {
+		stack := map[string]any{"link": "https://example.com/from-stack"}
+		jit, slow := compilePair(t, rt, src)
+
+		seen = nil
+		var jitBuf bytes.Buffer
+		jitRes, jitErr := jit(stack, &jitBuf)
+		jitSeen := fmt.Sprintf("%v", seen)
+
+		seen = nil
+		var slowBuf bytes.Buffer
+		slowRes, slowErr := slow(stack, &slowBuf)
+		slowSeen := fmt.Sprintf("%v", seen)
+
+		switch {
+		case (jitErr == nil) != (slowErr == nil):
+			t.Errorf("%s: err = %v (jit) vs %v (reflect)", name, jitErr, slowErr)
+		case jitErr != nil && jitErr.Error() != slowErr.Error():
+			t.Errorf("%s: err = %q (jit) vs %q (reflect)", name, jitErr, slowErr)
+		}
+		if jitBuf.String() != slowBuf.String() {
+			t.Errorf("%s: dest = %q (jit) vs %q (reflect)", name, jitBuf.String(), slowBuf.String())
+		}
+		if jitSeen != slowSeen {
+			t.Errorf("%s: callee saw %s (jit) vs %s (reflect)", name, jitSeen, slowSeen)
+		}
+		if fmt.Sprintf("%v", jitRes) != fmt.Sprintf("%v", slowRes) {
+			t.Errorf("%s: result = %v (jit) vs %v (reflect)", name, jitRes, slowRes)
+		}
+	}
+}
+
+// TestStepJITErrorsMatch checks the error words on the JIT side against
+// the reflect side, on a failing binding and on a bad stack value.
+func TestStepJITErrorsMatch(t *testing.T) {
+	rt := pairRuntime(t)
+	if err := rt.Bind("fail", func(s string) (*url.URL, error) {
+		return nil, errors.New("boom: " + s)
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, tc := range map[string]struct {
+		src   string
+		stack map[string]any
+	}{
+		"binding error":  {`u := fail("x"); json.NewEncoder(dest).Encode(u);`, nil},
+		"bad url":        {`json.NewEncoder(dest).Encode(url.Parse(link));`, map[string]any{"link": "://bad"}},
+		"wrong var type": {`json.NewEncoder(dest).Encode(url.Parse(link));`, map[string]any{"link": 42}},
+	} {
+		jit, slow := compilePair(t, rt, tc.src)
+		var a, b bytes.Buffer
+		_, jitErr := jit(tc.stack, &a)
+		_, slowErr := slow(tc.stack, &b)
+		if jitErr == nil || slowErr == nil {
+			t.Errorf("%s: expected errors, got %v (jit) %v (reflect)", name, jitErr, slowErr)
+			continue
+		}
+		if jitErr.Error() != slowErr.Error() {
+			t.Errorf("%s: err = %q (jit) vs %q (reflect)", name, jitErr, slowErr)
+		}
+	}
+}
+
+// TestStepJITFrameSurvivesGC forces collections between the steps'
+// stores and their reads. A frame allocated with the wrong pointer map,
+// or a store that skipped its write barrier, shows up here as a lost or
+// corrupted value rather than as a wrong benchmark.
+func TestStepJITFrameSurvivesGC(t *testing.T) {
+	rt := pairRuntime(t)
+	if err := rt.Bind("churn", func(v any) (*url.URL, error) {
+		for i := 0; i < 24; i++ {
+			runtime.GC()
+			_ = make([]byte, 1<<15)
+		}
+		// v is reached only through the frame slot the previous step
+		// wrote, and must still be intact after the collections.
+		return &url.URL{Path: fmt.Sprintf("/%d", len(fmt.Sprint(v)))}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	const src = `
+		cookies := http.NewRequest("GET", "/").Cookies();
+		u := churn(cookies);
+		json.NewEncoder(dest).Encode(u);
+	`
+	jit, slow := compilePair(t, rt, src)
+	var a, b bytes.Buffer
+	if _, err := jit(nil, &a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := slow(nil, &b); err != nil {
+		t.Fatal(err)
+	}
+	if a.String() != b.String() {
+		t.Errorf("after GC: %q (jit) vs %q (reflect)", a.String(), b.String())
+	}
+}
+
+// TestStepJITRefusesReassignedAlias checks the guard on aliasing: a slot
+// that is written more than once cannot back an interface argument,
+// because a later write would change the value behind an interface the
+// callee may still hold. Such a program must fall back to reflect.
+func TestStepJITRefusesReassignedAlias(t *testing.T) {
+	rt := pairRuntime(t)
+	prog, err := (&Parser{}).Parse(`
+		c := http.NewRequest("GET", "/a").Cookies();
+		json.NewEncoder(dest).Encode(c);
+		c = http.NewRequest("GET", "/b").Cookies();
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := rt.compiler.compileProgram(prog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if jitCompileProgram(p) != nil {
+		t.Fatal("a reassigned slot must not be aliased into an interface")
+	}
+}
+
+// TestStepJITFallsBackWholeProgram checks that one step outside the
+// table sends the entire program to reflect rather than mixing tiers.
+func TestStepJITFallsBackWholeProgram(t *testing.T) {
+	rt := pairRuntime(t)
+	// An int result has no layout class in the table.
+	if err := rt.Bind("count", func() int { return 7 }); err != nil {
+		t.Fatal(err)
+	}
+	prog, err := (&Parser{}).Parse(`
+		n := count();
+		json.NewEncoder(dest).Encode(url.Parse("/x"));
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := rt.compiler.compileProgram(prog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if jitCompileProgram(p) != nil {
+		t.Fatal("an int result should keep the program on the reflect tier")
+	}
+
+	// The program must still run, and still be correct.
+	fn, err := rt.Compile(`
+		n := count();
+		json.NewEncoder(dest).Encode(url.Parse("/x"));
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := fn.Scan(&buf, nil); err != nil {
+		t.Fatal(err)
+	}
+	if buf.Len() == 0 {
+		t.Error("fallback program wrote nothing")
+	}
+}

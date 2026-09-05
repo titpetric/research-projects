@@ -43,6 +43,12 @@ func (c *Compiler) Compile(prog *program) (CompiledFunc, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Every step in the shape table means the whole program runs
+	// without reflect.Value.Call. One step outside it and the reflect
+	// evaluator takes the program, so the two are never mixed.
+	if jp := jitCompileProgram(p); jp != nil {
+		return CompiledFunc(jp.run), nil
+	}
 	return CompiledFunc(p.run), nil
 }
 
