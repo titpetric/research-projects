@@ -113,6 +113,17 @@ type vmStmt struct {
 	call *vmCall
 	out  []int // one slot per bound result
 	ret  bool
+
+	// lit is the value of a literal assignment, "x = 123", already
+	// converted to the slot's type.
+	lit reflect.Value
+}
+
+// slotInit is the zero value a var statement puts in scope before the
+// program runs.
+type slotInit struct {
+	slot int
+	zero reflect.Value
 }
 
 // vmProgram is a compiled program. It holds no per-call state: the
@@ -130,6 +141,11 @@ type vmProgram struct {
 	// hold.
 	slotTypes   []reflect.Type
 	polymorphic bool
+
+	// inits are the var declarations, applied before the first
+	// statement so a name reads as its type's zero value even when
+	// nothing assigned it.
+	inits []slotInit
 }
 
 // compileProgram builds a vmProgram. Slots and their static types are
@@ -141,8 +157,66 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 	slots := map[string]int{}
 	env := map[string]reflect.Type{}
 
+	// A name declared with var fixes its type before anything else is
+	// compiled, so a literal assigned to it converts to that type.
+	declared := map[string]reflect.Type{}
+	for si := range prog.stmts {
+		if s := prog.stmts[si]; s.varType != "" {
+			t, ok := c.lookupType(s.varType)
+			if !ok {
+				return nil, fmt.Errorf("compile: unknown type %q, register it with BindType", s.varType)
+			}
+			declared[s.varName] = t
+		}
+	}
+
+	newSlot := func(name string, t reflect.Type) int {
+		slot, ok := slots[name]
+		if !ok {
+			slot = p.nslots
+			p.nslots++
+			p.slotTypes = append(p.slotTypes, nil)
+			slots[name] = slot
+		}
+		if prev := p.slotTypes[slot]; prev != nil && prev != t {
+			p.polymorphic = true
+		}
+		p.slotTypes[slot] = t
+		env[name] = t
+		return slot
+	}
+
 	for si := range prog.stmts {
 		s := prog.stmts[si]
+
+		if s.varType != "" {
+			t := declared[s.varName]
+			slot := newSlot(s.varName, t)
+			p.inits = append(p.inits, slotInit{slot: slot, zero: reflect.Zero(t)})
+			continue
+		}
+
+		if s.lit != nil {
+			if len(s.lhs) != 1 {
+				return nil, fmt.Errorf("compile: a literal assigns to exactly one name")
+			}
+			name := s.lhs[0]
+			if name == "dest" {
+				return nil, fmt.Errorf("compile: dest is supplied by Scan and cannot be assigned")
+			}
+			t, ok := env[name]
+			if !ok {
+				t = c.inferLiteralType(prog, name, *s.lit)
+			}
+			v, err := literalValue(*s.lit, t)
+			if err != nil {
+				return nil, fmt.Errorf("compile: %s: %w", name, err)
+			}
+			slot := newSlot(name, t)
+			p.stmts = append(p.stmts, vmStmt{lit: v, out: []int{slot}})
+			continue
+		}
+
 		if s.call == nil {
 			// A bare "return;".
 			p.stmts = append(p.stmts, vmStmt{ret: true})
@@ -161,22 +235,10 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 			if name == "dest" {
 				return nil, fmt.Errorf("compile: dest is supplied by Scan and cannot be assigned")
 			}
-			slot, ok := slots[name]
-			if !ok {
-				if !s.define {
-					return nil, fmt.Errorf("compile: %s is not defined, use :=", name)
-				}
-				slot = p.nslots
-				p.nslots++
-				p.slotTypes = append(p.slotTypes, nil)
-				slots[name] = slot
+			if _, ok := slots[name]; !ok && !s.define {
+				return nil, fmt.Errorf("compile: %s is not defined, use := or var", name)
 			}
-			env[name] = c.resultType(call, i)
-			if prev := p.slotTypes[slot]; prev != nil && prev != env[name] {
-				p.polymorphic = true
-			}
-			p.slotTypes[slot] = env[name]
-			out = append(out, slot)
+			out = append(out, newSlot(name, c.resultType(call, i)))
 		}
 		p.stmts = append(p.stmts, vmStmt{call: call, out: out, ret: s.ret})
 	}
@@ -216,6 +278,132 @@ func (p *vmProgram) assignFrame(c *vmCall) {
 			}
 		}
 	}
+}
+
+// literalValue converts a parsed literal to type t.
+func literalValue(a arg, t reflect.Type) (reflect.Value, error) {
+	if a.kind == argString {
+		v := reflect.ValueOf(a.str)
+		if !v.Type().AssignableTo(t) {
+			if t.Kind() == reflect.Interface && t.NumMethod() == 0 {
+				return v, nil
+			}
+			return reflect.Value{}, fmt.Errorf("cannot use a string as %s", t)
+		}
+		return v, nil
+	}
+	return literalAs(a, t)
+}
+
+// inferLiteralType picks the type of a name a literal is assigned to,
+// when no var statement fixed it. The first place the program passes
+// the name to a binding decides, because that is the only type the
+// value has to satisfy. Failing that the literal keeps the width the
+// parser gave it.
+func (c *Compiler) inferLiteralType(prog *program, name string, lit arg) reflect.Type {
+	for si := range prog.stmts {
+		if call := prog.stmts[si].call; call != nil {
+			if t := c.useType(call, name); t != nil {
+				return t
+			}
+		}
+	}
+	if lit.kind == argFloat {
+		return reflect.TypeFor[float64]()
+	}
+	if lit.kind == argString {
+		return reflect.TypeFor[string]()
+	}
+	return reflect.TypeFor[int64]()
+}
+
+// useType is the parameter type a call gives to name, looking through
+// nested calls. Only a call whose whole path is a binding is
+// considered: a method's receiver type may itself depend on a type not
+// worked out yet.
+func (c *Compiler) useType(e *callExpr, name string) reflect.Type {
+	if b, ok := c.bindings[joinPath(e.path)]; ok && len(e.chain) == 0 {
+		ft := b.rv.Type()
+		for i, a := range e.args {
+			if i >= ft.NumIn() {
+				break
+			}
+			if a.kind == argVar && a.str == name {
+				return ft.In(i)
+			}
+		}
+	}
+	for _, a := range e.args {
+		if a.kind == argCall {
+			if t := c.useType(a.sub, name); t != nil {
+				return t
+			}
+		}
+	}
+	for _, l := range e.chain {
+		for _, a := range l.args {
+			if a.kind == argCall {
+				if t := c.useType(a.sub, name); t != nil {
+					return t
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// literalAs converts a numeric literal to the type of the parameter it
+// fills. The parser only produces int64 and float64, so without this a
+// binding taking int, int32 or float32 could not be given a literal at
+// all. The value must be representable: a literal that does not fit is
+// a compile error, not a wrap.
+//
+// An empty interface parameter takes the literal at its written width,
+// int64 or float64, which is what the parser produced.
+func literalAs(a arg, pt reflect.Type) (reflect.Value, error) {
+	if pt.Kind() == reflect.Interface {
+		if pt.NumMethod() != 0 {
+			return reflect.Value{}, fmt.Errorf("cannot use a number as %s", pt)
+		}
+		if a.kind == argInt {
+			return reflect.ValueOf(a.i), nil
+		}
+		return reflect.ValueOf(a.f), nil
+	}
+	v := reflect.New(pt).Elem()
+	switch pt.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if a.kind == argFloat {
+			return reflect.Value{}, fmt.Errorf("cannot use %v as %s, it has a decimal point", a.f, pt)
+		}
+		if v.OverflowInt(a.i) {
+			return reflect.Value{}, fmt.Errorf("%d overflows %s", a.i, pt)
+		}
+		v.SetInt(a.i)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		if a.kind == argFloat {
+			return reflect.Value{}, fmt.Errorf("cannot use %v as %s, it has a decimal point", a.f, pt)
+		}
+		if a.i < 0 {
+			return reflect.Value{}, fmt.Errorf("cannot use %d as %s, it is negative", a.i, pt)
+		}
+		if v.OverflowUint(uint64(a.i)) {
+			return reflect.Value{}, fmt.Errorf("%d overflows %s", a.i, pt)
+		}
+		v.SetUint(uint64(a.i))
+	case reflect.Float32, reflect.Float64:
+		f := a.f
+		if a.kind == argInt {
+			f = float64(a.i)
+		}
+		if v.OverflowFloat(f) {
+			return reflect.Value{}, fmt.Errorf("%v overflows %s", f, pt)
+		}
+		v.SetFloat(f)
+	default:
+		return reflect.Value{}, fmt.Errorf("cannot use a number as %s", pt)
+	}
+	return v, nil
 }
 
 // fieldOf resolves name as an exported struct field on t,
@@ -408,10 +596,12 @@ func (c *Compiler) compileArg(slots map[string]int, env map[string]reflect.Type,
 	switch a.kind {
 	case argString:
 		v = reflect.ValueOf(a.str)
-	case argInt:
-		v = reflect.ValueOf(a.i)
-	case argFloat:
-		v = reflect.ValueOf(a.f)
+	case argInt, argFloat:
+		lit, err := literalAs(a, pt)
+		if err != nil {
+			return nil, fmt.Errorf("compile: %s argument %d: %w", name, pos+1, err)
+		}
+		v = lit
 	case argCall:
 		sub, st, err := c.compileExpr(slots, env, a.sub)
 		if err != nil {
@@ -481,8 +671,15 @@ func (p *vmProgram) run(stack map[string]any, dest any) (any, error) {
 	if p.nifaces > 0 {
 		ifaces = make([]ifacePair, p.nifaces)
 	}
+	for _, in := range p.inits {
+		slots[in.slot] = in.zero
+	}
 	for i := range p.stmts {
 		s := &p.stmts[i]
+		if s.lit.IsValid() {
+			slots[s.out[0]] = s.lit
+			continue
+		}
 		if s.call == nil {
 			return nil, nil
 		}

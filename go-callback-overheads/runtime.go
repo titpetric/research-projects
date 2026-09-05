@@ -24,13 +24,19 @@ type Runtime struct {
 	mu       sync.RWMutex
 	compiler Compiler
 	cache    map[string]CompiledFunc
+	// types is the registry a var statement resolves against. It is
+	// filled by walking every binding, so most types never need
+	// registering by hand.
+	types map[string]reflect.Type
 }
 
 // NewRuntime returns an empty Runtime.
 func NewRuntime() *Runtime {
+	types := predeclared()
 	return &Runtime{
-		compiler: Compiler{bindings: map[string]binding{}},
+		compiler: Compiler{bindings: map[string]binding{}, types: types},
 		cache:    map[string]CompiledFunc{},
+		types:    types,
 	}
 }
 
@@ -43,6 +49,9 @@ func (r *Runtime) Bind(name string, fn any) error {
 	}
 	r.mu.Lock()
 	r.compiler.bindings[name] = binding{rv: v, raw: fn}
+	// Everything the signature mentions becomes nameable in a var
+	// statement, along with what its methods reach.
+	r.discover(v.Type(), 1)
 	r.mu.Unlock()
 	return nil
 }

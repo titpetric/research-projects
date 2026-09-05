@@ -23,6 +23,9 @@ type binding struct {
 // execution time, when their value is known.
 type Compiler struct {
 	bindings map[string]binding
+	// types is the Runtime's registry, shared by reference so a Bind
+	// after a Compile is visible.
+	types map[string]reflect.Type
 }
 
 // Compile validates a program and builds the constructed func.

@@ -436,6 +436,12 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 	if p.polymorphic {
 		return nil, fmt.Errorf("a name is reassigned at a different type")
 	}
+	if len(p.inits) > 0 {
+		// A var holds a value of any type, including the numeric ones
+		// that have no layout class, and the closure tree has no store
+		// for it.
+		return nil, fmt.Errorf("a var declaration is not in the table")
+	}
 
 	stmts, live, writes, splices, err := planInline(p)
 	if err != nil {
@@ -501,6 +507,9 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 	stmts := make([]plannedStmt, 0, len(p.stmts))
 	for i := range p.stmts {
 		s := &p.stmts[i]
+		if s.lit.IsValid() {
+			return nil, nil, nil, nil, fmt.Errorf("a literal assignment is not in the table")
+		}
 		if s.call == nil {
 			continue // a bare "return;" leaves the program without a value
 		}

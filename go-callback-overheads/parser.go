@@ -10,8 +10,11 @@ import (
 // name, or the result of another call.
 //
 //	program := { stmt }
-//	stmt    := "return" [ expr ] ";"
-//	         | [ name { "," name } ( ":=" | "=" ) ] expr ";"
+//	stmt    := "var" name typeref ";"
+//	         | "return" [ expr ] ";"
+//	         | [ name { "," name } ( ":=" | "=" ) ] rhs ";"
+//	rhs     := expr | string | number
+//	typeref := { "*" | "[]" } path
 //	expr    := path "(" [ args ] ")" { "." ident "(" [ args ] ")" }
 //	path    := ident { "." ident }
 //	args    := arg { "," arg }
@@ -69,12 +72,23 @@ type callExpr struct {
 	chain []link
 }
 
-// stmt is one statement of a program.
+// stmt is one statement of a program. Exactly one of call, lit and
+// varType describes what it does; a bare "return;" has none of them.
 type stmt struct {
-	lhs    []string // names bound to the call's results, empty to discard
+	lhs    []string // names bound to the results, empty to discard
 	define bool     // ":=" rather than "="
 	ret    bool     // a return statement
 	call   *callExpr
+
+	// lit is set when the right-hand side is a literal rather than a
+	// call, "x = 123". There is no call to take a type from, so the
+	// compiler infers one.
+	lit *arg
+
+	// varName and varType are set by a var statement, which puts the
+	// zero value of a named type in scope.
+	varName string
+	varType string
 }
 
 // program is a parsed source unit.
@@ -125,6 +139,20 @@ func (p *Parser) Parse(src string) (*program, error) {
 }
 
 func (p *Parser) stmt() (stmt, error) {
+	if p.keyword("var") {
+		name := p.ident()
+		if name == "" {
+			return stmt{}, fmt.Errorf("parse: expected a name after var at offset %d", p.pos)
+		}
+		typ, err := p.typeRef()
+		if err != nil {
+			return stmt{}, err
+		}
+		if !p.consume(';') {
+			return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+		}
+		return stmt{varName: name, varType: typ}, nil
+	}
 	if p.keyword("return") {
 		s := stmt{ret: true}
 		p.skipSpace()
@@ -153,6 +181,22 @@ func (p *Parser) stmt() (stmt, error) {
 		lhs, define = nil, false
 	}
 
+	// A literal right-hand side is not a call, so it is read here
+	// rather than through expr.
+	if len(lhs) > 0 {
+		p.skipSpace()
+		if c := p.peek(); c == '"' || c == '\'' || c == '-' || (c >= '0' && c <= '9') {
+			a, err := p.arg()
+			if err != nil {
+				return stmt{}, err
+			}
+			if !p.consume(';') {
+				return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+			}
+			return stmt{lhs: lhs, define: define, lit: &a}, nil
+		}
+	}
+
 	call, err := p.expr()
 	if err != nil {
 		return stmt{}, err
@@ -161,6 +205,32 @@ func (p *Parser) stmt() (stmt, error) {
 		return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
 	}
 	return stmt{lhs: lhs, define: define, call: call}, nil
+}
+
+// typeRef reads a type as written in a var statement: a dotted name,
+// with any number of pointer and slice prefixes. The spelling matches
+// reflect.Type.String(), which is what the registry is keyed by.
+func (p *Parser) typeRef() (string, error) {
+	prefix := ""
+	for {
+		p.skipSpace()
+		if p.pos < len(p.src) && p.src[p.pos] == '*' {
+			p.pos++
+			prefix += "*"
+			continue
+		}
+		if p.pos+1 < len(p.src) && p.src[p.pos] == '[' && p.src[p.pos+1] == ']' {
+			p.pos += 2
+			prefix += "[]"
+			continue
+		}
+		break
+	}
+	path, err := p.path()
+	if err != nil {
+		return "", fmt.Errorf("parse: expected a type name at offset %d", p.pos)
+	}
+	return prefix + joinPath(path), nil
 }
 
 // assignList scans "a, b :=" or "a =" and reports whether one was
