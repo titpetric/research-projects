@@ -1,227 +1,215 @@
-# go-callback-overheads
+# Go, call overheads and JIT
 
-A minimal virtual machine evaluator for Go API callbacks. Go functions
-are bound by name, a single-statement template invokes them, and the
-invocation is compiled once into a constructed func that is cached per
-expression string. The question the repository answers is what that
-costs against calling the function directly, and how much of the cost
-can be removed.
+What does it cost to call Go functions from a small interpreted
+language, instead of calling them from Go? A statement is parsed once,
+compiled once, cached per source string, and then executed many times.
+This measures the execution, against the same calls written by hand.
 
-A shape-table JIT over the bound function reruns a cached statement with
-no allocations on top of the native `http.NewRequest` call, against the
-two extra allocations of the reflect path it replaces. The measured
-figures are under [what the overhead is made
-of](#what-the-overhead-is-made-of).
+The answer is 61.87ns for a single call and 196.9ns for a four-call
+program, both with the same number of allocations as the native code.
+Parsing and compiling, if they are not cached, cost 2.136us.
 
-## Design requirements
+## Syntax
 
-- A runtime is created with `runtime := NewRuntime()`. Go functions are
-  registered with `Bind("NewRequest", http.NewRequest)`. Reflection over
-  the bound function is the general invocation mechanism; the JIT is an
-  optimization of that cost, not a second capability.
-- The VM implements exactly one statement form, a return statement:
-  `return NewRequest("GET", "https://example.com");`. Nothing else is in
-  scope, and no binding other than NewRequest is added or tested; anything
-  more would extend the implementation scope.
-- Type literals are single-quoted and double-quoted strings. Numbers map
-  to int64 (no decimal point) or float64 (decimal point) and no other
-  numeric type.
-- The stack is a `map[string]any`. A bare identifier in the statement is
-  a variable reference resolved against the stack at execution time. The
-  stack may hold any value; an unset or nil entry fills the argument with
-  its zero value (`""` for string, nil for a pointer-shaped type such as
-  io.Reader).
-- Missing trailing arguments are filled with their zero values the same
-  way: `NewRequest("GET", url)` passes nil for the io.Reader body.
-- Arguments are validated at compilation time. If the NewRequest binding
-  takes `string, string, io.Reader`, only those types can be passed:
-  a numeric literal in a string slot is a compile error, as is an excess
-  argument or an unknown binding.
-- Compilation internalizes the binding into a constructed `CompiledFunc`,
-  a `func(map[string]any) (any, error)`, cached per expression string, so
-  the same statement rerun with a different stack skips parsing and
-  compilation entirely.
+The language has no operators. A program is a list of statements, each
+one a call whose results bind to names:
 
-## Execution tiers
+```
+program := { stmt }
+stmt    := "return" [ expr ] ";"
+         | [ name { "," name } ( ":=" | "=" ) ] expr ";"
+expr    := path "(" [ args ] ")" { "." ident "(" [ args ] ")" }
+arg     := string | number | name | expr
+```
 
-Compilation picks one of two tiers for the constructed func.
+Values are string literals, int64, float64, names, and the results of
+other calls. There is no arithmetic, no string concatenation, no field
+access, no conditionals. Errors are never written down: a trailing
+error result is stripped at compile time and checked after every call,
+and a non-nil one ends the program.
 
-**Direct call (jit.go).** Under Go's internal ABI, argument and result
-passing depends only on the layout classes of the types, not their
-names: `io.Reader` and `struct{ tab, data unsafe.Pointer }` are the
-same two pointer words, `*http.Request` and `unsafe.Pointer` the same
-one, `string` is `string`. A bound func whose signature matches a shape
-in the table is reinterpreted via unsafe as the shape type and called
-directly, skipping `reflect.Value.Call` and the argument frame and
-results slice it allocates.
+Two rules cover the gaps that leaves. Every argument is optional and a
+missing one is the zero value of its parameter type, so a three
+parameter function can be called with two arguments. `dest` is a
+reserved name holding the pointer `Scan` was given, which is how a
+program writes its output.
 
-The shape table covers:
+## Is it functional
 
-- `(string) (ptr, error)`
-- `(string, string) (ptr, error)`
-- `(string, string, iface) (ptr, error)`, interface zero-filled by the
-  statement
+Yes. This is the program the benchmarks run:
 
-String arguments are literals or stack variables; a variable resolves
-with a map lookup and a type assertion per call. Anything outside the
-table, including an interface parameter fed from the stack (it would
-need an itab conversion), compiles to the reflect tier. Extending the
-table is additive: one shape type and one constructor case.
+```
+req := http.NewRequest("GET", "/");
+cookies := req.Cookies();
+enc := json.NewEncoder(dest);
+enc.Encode(cookies);
+```
 
-**Reflect fallback (compiler.go).** The prebuilt `[]reflect.Value`
-argument slice, variable slots patched from the stack, one `fn.Call`.
-This tier is what the package did before the JIT, and what
-BenchmarkCostNaive measures.
+Run with `var dest bytes.Buffer` and `fn.Scan(&dest, nil)`, it leaves
+`"[]\n"` in the buffer. Observations:
 
-A JIT'd compiled func keeps no per-call state and is safe for
-concurrent use. The reflect fallback reuses its argument slice between
-calls and is not.
+- The third argument of `http.NewRequest` is omitted and the body
+  arrives as a nil `io.Reader`.
+- Neither error is named. `http.NewRequest` failing returns that error
+  from `Scan`, and nothing after it runs.
+- `Cookies` and `Encode` are not bound. They are found on the result
+  types of the two bindings when the program compiles, so an unknown
+  method is a compile error and not an execution one.
+- Chaining and nesting compile to the same four steps. The one line
+  form is `json.NewEncoder(dest).Encode(http.NewRequest("GET",
+  "/").Cookies());`.
 
-## What the unsafe layer consists of
+## Bindings
 
-The direct call rests on four one-liners, each a fact about Go's
-runtime representation:
+Only functions are bound, and only some shapes reach the fast path.
 
-- A func value held in an `any` is pointer-shaped, so the eface data
-  word is the funcval pointer. This holds for top-level functions,
-  closures and method values.
-- Writing that pointer over a zero func variable of the shape type is
-  the whole conversion; a func variable is a single pointer to its
-  funcval.
-- A pointer result boxes into an `any` by writing the two interface
-  words directly: the type word is the `*rtype` behind the binding's
-  `reflect.Type` (the data word of that interface), the data word is
-  the pointer. This produces the same representation the compiler
-  would, without an allocation.
-- An error result read back as `struct{ tab, data unsafe.Pointer }` is
-  already a valid error interface when `tab != nil`, and converts with
-  a pointer cast.
-
-The cast assumes Go's internal ABI layout classes (holds on amd64 and
-arm64, verified here on go1.27.0/amd64, including under the race
-detector and with inlining disabled). TestJITMatchesReflect runs the
-same compiled Statement through both tiers, on the success and the
-error path, so a toolchain that changes the assumption fails the test
-suite.
+- `Bind` takes any func value. Method expressions such as
+  `(*json.Encoder).Encode` are ordinary funcs and bind directly,
+  although this program does not need them.
+- Variadic functions are rejected at compile time.
+- Names bound by a program carry a static type; methods are resolved
+  against it. Names read from the caller's stack are opaque and are
+  checked when they are read.
+- The JIT understands four layout classes: pointer-shaped, string,
+  interface and slice. A parameter or result outside them, an `int`
+  for example, keeps the whole program on the reflect tier.
+- An interface argument fed from the stack needs its type in
+  `ifaceConvs`, currently `any`, `io.Writer` and `io.Reader`. The
+  interface table for a pair of concrete and interface types cannot be
+  assembled by hand, so each entry obtains it with a type assertion.
+- A slot written more than once cannot back an interface argument,
+  because the argument aliases the slot rather than copying it.
 
 ## API
 
 ```go
-runtime := NewRuntime()
-runtime.Bind("NewRequest", http.NewRequest)
+rt := NewRuntime()
+rt.BindScope("http", map[string]any{"NewRequest": http.NewRequest})
+rt.BindScope("json", map[string]any{"NewEncoder": json.NewEncoder})
 
-// Parse + compile + execute, cached per statement string.
-req, err := runtime.Eval[*http.Request](`return NewRequest("GET", "https://example.com");`, stack)
-
-// Split form: compile once, execute many times with different stacks.
-fn, err := runtime.Compile(`return NewRequest("GET", url);`)
+fn, err := rt.Compile(src)          // cached per source string
+err = fn.Scan(&dest, stack)         // dest is bound to the name "dest"
 req, err := fn.Exec[*http.Request](stack)
-
-// Scan copies the result into caller-allocated memory.
-var req http.Request
-err := fn.Scan(&req, stack)
+req, err := rt.Eval[*http.Request](src, stack)
 ```
 
-`Compile` returns a `CompiledFunc`, a defined
-`func(map[string]any) (any, error)`. `Eval`, `Exec` and `Scan` are
-generic methods: `Eval` on `*Runtime`, `Exec` and `Scan` on
-`CompiledFunc`. Generic methods require the go1.27 language version,
-which is what the `go` line in go.mod selects.
+`Bind` registers one name, `BindScope` a dotted group; a dotted name is
+one key in the binding map, and a path resolves to the longest prefix
+that names a binding. `Compile` returns a `CompiledFunc`, a defined
+`func(map[string]any, any) (any, error)`.
 
-`T` appears only in the result of `Eval` and `Exec`, so it has nothing
-to be inferred from and is always instantiated explicitly. `Scan` infers
-`T` from `dest *T`; the result is dereferenced when it is a `*T`.
+`Eval`, `Exec` and `Scan` are generic methods, which need the go1.27
+language version the `go` line in go.mod selects. `T` appears only in
+the results of `Eval` and `Exec`, so both are instantiated explicitly;
+`Scan` infers `T` from `dest`.
 
-The runtime is not parameterized on `T`. Bindings with different return
-types share one runtime, and the type is chosen per call site.
+## Overhead
 
-## What the overhead is made of
+Medians of five runs, each benchmark in its own process, pinned to one
+core with inlining disabled, Intel N150, go1.27.0. The raw sweep is
+[`bench.txt`](bench.txt). cost-sec/op is the measured loop minus a
+native baseline timed inline in the same process.
 
-Measured against `http.NewRequest`, three findings:
+| Benchmark          | sec/op  | B/op | allocs/op | cost-sec/op |
+|--------------------|--------:|-----:|----------:|------------:|
+| Native             | 651.7n  |  512 |         3 |           - |
+| CostWithoutCaching | 2.795us | 1256 |        18 |     2.136us |
+| CostNaive          | 1.997us |  576 |         5 |     1.189us |
+| CostAmortizedCache | 921.4n  |  512 |         3 |      61.87n |
+| ProgramNative      | 1.437us |  688 |         6 |           - |
+| ProgramCached      | 1.579us |  712 |         6 |      196.9n |
 
-1. Parsing and compilation are the bulk of it. Executing the statement
-   without the expression cache costs 1.316us over the native call,
-   against 39.46n for the same statement once compiled and cached. The
-   text-to-callable step is 33 times the entire per-call cost of the
-   compiled form, and it is the part a cache removes outright.
-2. Reflection is smaller than parsing and is not free. The reflect tier
-   costs 796.1n over native and allocates 5 times per call where native
-   allocates 3. The two extra allocations are the argument frame and the
-   results slice `reflect.Value.Call` builds on every call.
-3. What is left can be removed. Reinterpreting the bound func as a shape
-   type and calling it directly brings allocations back to native's 3
-   and the cost to 39.46n against a 633.4n native call, 6.2%. Across the
-   three counts of the sweep that ratio reads 4.1%, 6.0% and 7.1%; see
-   the spread below. That 39.46n buys the map lookup for the variable,
-   its type assertion, and boxing the result into an `any`.
+The first four run `return NewRequest("GET", url);`. The last two run
+the four statement program above.
 
-## Benchmarks
+- Both JIT tiers reach allocation parity with native: 3 against 3 for
+  the single call, 6 against 6 for the program. The program's extra 24
+  bytes are its frame, which replaces the allocation native pays boxing
+  `cookies` into an `any`.
+- Parsing and compiling are the bulk of the cost at 2.136us, thirty
+  times the whole per-call cost of the compiled form. That is the part
+  the expression cache removes.
+- Reflection is smaller than parsing and is not free: 1.189us and two
+  allocations over native, the argument frame and results slice
+  `reflect.Value.Call` builds per call.
+- Read the spread before the medians. A cost figure is a difference of
+  two numbers around 650n or 1.4us, so a few percent of drift in the
+  baseline moves it by a large fraction of itself. The ordering of the
+  tiers holds; the JIT figures are bounded to tens and low hundreds of
+  nanoseconds rather than resolved.
 
-Every run is pinned to one core at top priority (`taskset -c 3 nice -n
--20`), a 3s warmup run is discarded first, and inlining is disabled
-(`-gcflags=all=-l`) so the native baseline is not inlined into the loop
-body. The sweep runs with `-benchtime 10s -count 3 -benchmem`.
-
-There are exactly four benchmarks. All of them run the statement
-`return NewRequest("GET", url);` with the compiled form reused verbatim
-between executions against a stack holding the url:
-
-| Benchmark          | Measures                                                 |
-|--------------------|----------------------------------------------------------|
-| Native             | the direct Go call the statement compiles down to        |
-| CostWithoutCaching | parse + compile + execute per op, bypassing the cache    |
-| CostNaive          | the once-compiled statement run through the reflect tier |
-| CostAmortizedCache | the once-compiled statement run through the JIT tier     |
-
-CostNaive and CostAmortizedCache are the same compiled Statement over
-the same binding, taking the same `func(map[string]any) (any, error)`
-and resolving the variable from whatever stack they are handed. The
-only difference is `Statement.call`, which builds the argument slice
-and goes through `reflect.Value.Call`, against the JIT'd direct call.
-
-Each cost benchmark times its own native baseline inline: after the
-measured loop ends (`b.Loop` stops the timer, so the extra work is not
-measured), it runs `b.N` iterations of `http.NewRequest` under its own
-stopwatch and reports `native-ns/op` alongside `cost-ns/op`, the
-statement's cost over native. CostWithoutCaching's cost-ns/op is
-(no-cache - native), the price of parsing and compilation; CostNaive's
-is (reflect - native) and CostAmortizedCache's is (cached - native),
-the amortized overhead of going through the VM on either tier. The
-baseline includes neither the stack map lookup nor the type assertion,
-so both count toward the VM's cost.
-
-### Results
-
-The raw sweep is [`bench.txt`](bench.txt), three counts of each
-benchmark on an Intel N150 under go1.27.0. The figures quoted above are
-its medians.
-
-To reproduce it:
+Benchmarks must run one per process. In a single binary the program
+benchmarks and the parser inflate the shared heap, and everything
+measured after them pays the garbage collection: `CostAmortizedCache`
+reads 921.4n isolated and 960n in a combined sweep.
 
 ```sh
 go test -run XXX -bench . -benchtime 3s -gcflags=all=-l . > /dev/null
-go test -run XXX -bench . -benchmem -benchtime 10s -count 3 \
-	-gcflags=all=-l . | tee bench.txt
+for b in Native CostWithoutCaching CostNaive CostAmortizedCache \
+         ProgramNative ProgramCached; do
+	go test -run XXX -bench "^Benchmark$b\$" -benchmem \
+		-benchtime 5s -count 5 -gcflags=all=-l .
+done
 benchstat bench.txt
 ```
 
-The first line is the discarded warmup. Prefix both `go test` lines
-with `taskset -c 3 nice -n -20` to pin them, which needs root for the
-nice level; unpinned on a shared machine the same native call read 509n
-to 913n between sweeps.
+The first line is a discarded warmup. Prefix each `go test` with
+`taskset -c 3 nice -n -20` to pin it, which needs root for the nice
+level; unpinned on a shared machine the same native call read 509n to
+913n between sweeps. `-gcflags=all=-l` is required: without it the
+native baseline is inlined into the loop body and measures nothing.
 
-Read the spread before the medians. B/op and allocs/op are identical
-across all three counts of every benchmark; sec/op is not. The JIT
-tier's cost is a difference of two numbers around 650n, so a few
-percent of drift in the baseline moves it by half its own value, which
-is the 4.1% to 7.1% range quoted above. The ordering of the tiers holds
-at this resolution. The JIT tier's cost-ns/op is bounded to tens of
-nanoseconds, not resolved to a figure.
+## Optimisation
 
-For a profile of the cached path:
+What was tried, in order, with the effect on the four call program's
+cost over native.
 
-```sh
-go test -run XXX -bench 'BenchmarkCostAmortizedCache$' -benchmem \
-	-benchtime 10s -gcflags=all=-l -cpuprofile cpu.out -memprofile mem.out .
-go tool pprof callbacks.test cpu.out
 ```
+vm:   reflect evaluator, arg slice and AssignableTo per call     8791n
+vm:   cache assignability per argument, one entry, atomic        5475n
+vm:   one per-run frame for slots and every call's arguments       "
+vm:   precompute the itab, hand reflect a pre-typed argument     2980n
+jit:  shape table per step, reflect.StructOf frame, raw stores    295n
+jit:  alias the slot for an interface argument, drop the box       "
+jit:  linkname reflect.unsafe_New, skip the pointer-type lookup   197n
+```
+
+Notes on each:
+
+- The assignability cache was the largest single win. `AssignableTo`
+  against an interface walks method tables comparing names and was 29%
+  of the profile; the same program is handed the same concrete type
+  every time, so one entry removes it.
+- Pre-typing the argument was needed because `reflect.Value.Call` runs
+  its own `assignTo` per argument, which the cache above cannot reach.
+  A type assertion produces the interface table, and the value arrives
+  already typed as the parameter.
+- The step JIT is the shape table from `jit.go` applied to every call
+  rather than to one statement. `reflect.StructOf` gives the slots one
+  allocation with a correct pointer map and a stable address per field,
+  so raw words are read and written at offsets and every store keeps
+  its write barrier. A program JITs whole or not at all.
+- Aliasing is what buys allocation parity. An interface argument taken
+  from a slot points at the slot instead of a copy, which is only legal
+  because the frame outlives the call and the slot is written once.
+- `reflect.New` was 12% of the JIT'd program, mostly its pointer-type
+  lookup rather than the allocation. The linkname goes to the allocator
+  reflect itself calls. It is a pull linkname to an internal symbol and
+  a toolchain bump can break it.
+
+Approaches tested and rejected:
+
+- Pooling frames. The aliasing above means an interface handed to a
+  callee can outlive the run, so a frame cannot be reused.
+- Boxing a slice result into an `any` through `reflect.New` per call.
+  Correct, and one allocation more than native.
+- Carrying slot values as `reflect.Value`. Every JIT'd step then pays
+  the conversion at both ends.
+
+The remaining 197n is the frame allocation and the loop over four
+closures.
+
+`TestStepJITMatchesReflect` runs the same program down both tiers and
+compares output, errors, and what each callee received through the
+interface it was handed, so a toolchain that changes the assumptions
+fails the suite rather than the benchmark.
