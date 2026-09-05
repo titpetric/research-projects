@@ -107,7 +107,7 @@ func jitResult(out, p unsafe.Pointer, e ifacePair) (any, error) {
 // optionally followed by one trailing interface parameter the statement
 // leaves zero-filled (nil). An interface parameter fed from the stack
 // needs an itab conversion and stays on the reflect path.
-func jitCompile(fn any, ft reflect.Type, call *callExpr) compiledFunc {
+func jitCompile(fn any, ft reflect.Type, call *callExpr) CompiledFunc {
 	if fn == nil {
 		return nil
 	}

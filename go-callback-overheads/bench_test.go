@@ -57,7 +57,7 @@ func BenchmarkCostWithoutCaching(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		sinkReq, sinkErr = Exec[*http.Request](fn, stack)
+		sinkReq, sinkErr = fn.Exec[*http.Request](stack)
 	}
 	reportVsNative(b)
 }
@@ -80,10 +80,10 @@ func BenchmarkCostNaive(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	fn := compiledFunc(s.call)
+	fn := CompiledFunc(s.call)
 	stack := map[string]any{"url": "https://example.com/index.html"}
 	for b.Loop() {
-		sinkReq, sinkErr = Exec[*http.Request](fn, stack)
+		sinkReq, sinkErr = fn.Exec[*http.Request](stack)
 	}
 	reportVsNative(b)
 }
@@ -100,7 +100,7 @@ func BenchmarkCostAmortizedCache(b *testing.B) {
 	}
 	stack := map[string]any{"url": "https://example.com/index.html"}
 	for b.Loop() {
-		sinkReq, sinkErr = Exec[*http.Request](fn, stack)
+		sinkReq, sinkErr = fn.Exec[*http.Request](stack)
 	}
 	reportVsNative(b)
 }

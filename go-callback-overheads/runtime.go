@@ -6,12 +6,14 @@ import (
 	"sync"
 )
 
-// compiledFunc is the type of the constructed closure a statement
-// compiles to: the JIT'd direct call when the binding fits a shape in
-// the table, otherwise the reflect path. The result is the callee's
-// return value boxed into an any; a pointer result boxes without an
-// allocation.
-type compiledFunc = func(stack map[string]any) (any, error)
+// CompiledFunc is the constructed closure a statement compiles to: the
+// JIT'd direct call when the binding fits a shape in the table,
+// otherwise the reflect path. The result is the callee's return value
+// boxed into an any; a pointer result boxes without an allocation.
+//
+// It is a defined type rather than a plain func so that Exec and Scan
+// can hang off it as generic methods.
+type CompiledFunc func(stack map[string]any) (any, error)
 
 // Runtime holds the bindings and the expression -> func cache. Create
 // one with NewRuntime, register functions with Bind, then use Eval, or
@@ -19,14 +21,14 @@ type compiledFunc = func(stack map[string]any) (any, error)
 type Runtime struct {
 	mu       sync.RWMutex
 	compiler Compiler
-	cache    map[string]compiledFunc
+	cache    map[string]CompiledFunc
 }
 
 // NewRuntime returns an empty Runtime.
 func NewRuntime() *Runtime {
 	return &Runtime{
 		compiler: Compiler{bindings: map[string]binding{}},
-		cache:    map[string]compiledFunc{},
+		cache:    map[string]CompiledFunc{},
 	}
 }
 
@@ -46,7 +48,7 @@ func (r *Runtime) Bind(name string, fn any) error {
 // Compile parses and compiles a statement into its constructed func.
 // Results are cached per statement string: the second Compile of the
 // same statement is a map lookup.
-func (r *Runtime) Compile(stmt string) (compiledFunc, error) {
+func (r *Runtime) Compile(stmt string) (CompiledFunc, error) {
 	r.mu.RLock()
 	fn, ok := r.cache[stmt]
 	r.mu.RUnlock()
@@ -66,7 +68,7 @@ func (r *Runtime) Compile(stmt string) (compiledFunc, error) {
 
 // compileUncached parses and compiles a statement without touching the
 // expression cache. This is the full first-run cost of a statement.
-func (r *Runtime) compileUncached(stmt string) (compiledFunc, error) {
+func (r *Runtime) compileUncached(stmt string) (CompiledFunc, error) {
 	call, err := (&Parser{}).Parse(stmt)
 	if err != nil {
 		return nil, err
@@ -81,19 +83,22 @@ func (r *Runtime) compileUncached(stmt string) (compiledFunc, error) {
 }
 
 // Eval compiles (or reuses the cached compilation of) stmt and executes
-// it against the stack.
-func Eval[T any](r *Runtime, stmt string, stack map[string]any) (T, error) {
+// it against the stack. T is the expected result type and cannot be
+// inferred, so it is always instantiated explicitly:
+// rt.Eval[*http.Request](stmt, stack).
+func (r *Runtime) Eval[T any](stmt string, stack map[string]any) (T, error) {
 	fn, err := r.Compile(stmt)
 	if err != nil {
 		var zero T
 		return zero, err
 	}
-	return Exec[T](fn, stack)
+	return fn.Exec[T](stack)
 }
 
 // Exec runs a compiled statement against a stack and returns the result
-// as T.
-func Exec[T any](fn compiledFunc, stack map[string]any) (T, error) {
+// as T. Like Eval, T appears only in the result and is instantiated
+// explicitly.
+func (fn CompiledFunc) Exec[T any](stack map[string]any) (T, error) {
 	var zero T
 	out, err := fn(stack)
 	if err != nil || out == nil {
@@ -106,20 +111,19 @@ func Exec[T any](fn compiledFunc, stack map[string]any) (T, error) {
 	return v, nil
 }
 
-// Scan runs a compiled statement and copies the result into dest, which
-// must be a non-nil pointer. When the result is a pointer to dest's
-// element type it is dereferenced, so a *http.Request result scans into
-// a caller-allocated http.Request without going through an interface.
-func Scan[T any](dest T, fn compiledFunc, stack map[string]any) error {
-	dv := reflect.ValueOf(dest)
-	if dv.Kind() != reflect.Pointer || dv.IsNil() {
-		return fmt.Errorf("scan: dest must be a non-nil pointer, got %T", dest)
+// Scan runs a compiled statement and copies the result into dest. When
+// the result is a *T it is dereferenced, so a *http.Request result
+// scans into a caller-allocated http.Request without going through an
+// interface. T is inferred from dest.
+func (fn CompiledFunc) Scan[T any](dest *T, stack map[string]any) error {
+	if dest == nil {
+		return fmt.Errorf("scan: dest must be a non-nil *%T", *new(T))
 	}
 	res, err := fn(stack)
 	if err != nil {
 		return err
 	}
-	de := dv.Elem()
+	de := reflect.ValueOf(dest).Elem()
 	if res == nil {
 		de.SetZero()
 		return nil

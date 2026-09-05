@@ -19,7 +19,7 @@ func newRuntime(t *testing.T) *Runtime {
 
 func TestEval(t *testing.T) {
 	rt := newRuntime(t)
-	req, err := Eval[*http.Request](rt, `return NewRequest("GET", "https://example.com/index.html");`, nil)
+	req, err := rt.Eval[*http.Request](`return NewRequest("GET", "https://example.com/index.html");`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestEval(t *testing.T) {
 
 func TestEvalSingleQuoted(t *testing.T) {
 	rt := newRuntime(t)
-	req, err := Eval[*http.Request](rt, `return NewRequest('GET', 'https://example.com/sq');`, nil)
+	req, err := rt.Eval[*http.Request](`return NewRequest('GET', 'https://example.com/sq');`, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestEvalURLVariable(t *testing.T) {
 		}
 		stack["url"] = link
 
-		req, err := Exec[*http.Request](fn, stack)
+		req, err := fn.Exec[*http.Request](stack)
 		if err != nil {
 			t.Fatalf("%s: %v", link, err)
 		}
@@ -79,7 +79,7 @@ func TestEvalURLVariable(t *testing.T) {
 		}
 
 		var scanned http.Request
-		if err := Scan[*http.Request](&scanned, fn, stack); err != nil {
+		if err := fn.Scan(&scanned, stack); err != nil {
 			t.Fatalf("%s: %v", link, err)
 		}
 		if scanned.URL.Path != want.Path {
@@ -92,7 +92,7 @@ func TestEvalUnsetVariable(t *testing.T) {
 	rt := newRuntime(t)
 	// url is not on the stack: it zero-fills to "" and NewRequest gets
 	// an empty URL.
-	req, err := Eval[*http.Request](rt, `return NewRequest("GET", url);`, map[string]any{})
+	req, err := rt.Eval[*http.Request](`return NewRequest("GET", url);`, map[string]any{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestEvalUnsetVariable(t *testing.T) {
 
 func TestEvalBodyVariable(t *testing.T) {
 	rt := newRuntime(t)
-	req, err := Eval[*http.Request](rt, `return NewRequest("POST", "https://example.com/post", body);`, map[string]any{
+	req, err := rt.Eval[*http.Request](`return NewRequest("POST", "https://example.com/post", body);`, map[string]any{
 		"body": strings.NewReader("payload"),
 	})
 	if err != nil {
@@ -153,7 +153,7 @@ func TestExecVariableTypeMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Exec[*http.Request](fn, map[string]any{"url": 42}); err == nil {
+	if _, err := fn.Exec[*http.Request](map[string]any{"url": 42}); err == nil {
 		t.Fatal("expected type mismatch for int stack value in string slot")
 	}
 }

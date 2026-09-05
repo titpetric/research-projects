@@ -24,7 +24,7 @@ type varSlot struct {
 // != nil) keeps no per-call state and is safe for concurrent use.
 type Statement struct {
 	fn   reflect.Value
-	fast compiledFunc // JIT'd direct call, nil when out of shape
+	fast CompiledFunc // JIT'd direct call, nil when out of shape
 	args []reflect.Value
 	vars []varSlot
 
@@ -35,7 +35,7 @@ type Statement struct {
 // Func returns the constructed closure over the Statement: the JIT'd
 // direct call when the binding fits a shape, otherwise the reflect
 // path. This is the value Runtime.Compile caches.
-func (s *Statement) Func() compiledFunc {
+func (s *Statement) Func() CompiledFunc {
 	if s.fast != nil {
 		return s.fast
 	}
