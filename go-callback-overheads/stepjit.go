@@ -765,9 +765,95 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 	case vaConst:
 		return constNode(cl, a.val)
 
+	case vaField:
+		return c.fieldNode(a, pt, cl)
+
 	default:
 		return c.dynamicNode(a, pt, cl)
 	}
+}
+
+// fieldNode reads one struct field out of a pointer. The offset is
+// known when the program compiles, so the load is an add and a move
+// rather than a call.
+//
+// Only a single field of a pointer to a struct is in the table. A
+// deeper index reaches through embedded types whose offsets do not
+// simply add when one of them is itself a pointer, so those go to the
+// reflect evaluator.
+func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, error) {
+	if !a.deref || len(a.index) != 1 {
+		return node{}, fmt.Errorf("only a single field of a pointer to a struct is in the table")
+	}
+	srcType := a.src.typ
+	if srcType == nil || srcType.Kind() != reflect.Pointer || srcType.Elem().Kind() != reflect.Struct {
+		return node{}, fmt.Errorf("a field source must be a pointer to a struct")
+	}
+	sf := srcType.Elem().Field(a.index[0])
+	fcl := layoutOf(sf.Type)
+	if fcl == lBad {
+		return node{}, fmt.Errorf("field %s of type %s has no layout class", sf.Name, sf.Type)
+	}
+	src, err := c.argNode(a.src, srcType, lPtr)
+	if err != nil {
+		return node{}, err
+	}
+	sp, off, name := src.P, sf.Offset, sf.Name
+
+	load := func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+		p, err := sp(fr, st, d)
+		if err != nil {
+			return nil, err
+		}
+		if p == nil {
+			return nil, fmt.Errorf("exec: field %s read on a nil %s", name, srcType)
+		}
+		return unsafe.Add(p, off), nil
+	}
+
+	var out node
+	switch fcl {
+	case lPtr:
+		out = node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			at, err := load(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			return *(*unsafe.Pointer)(at), nil
+		}}
+	case lStr:
+		out = node{class: lStr, S: func(fr unsafe.Pointer, st map[string]any, d any) (string, error) {
+			at, err := load(fr, st, d)
+			if err != nil {
+				return "", err
+			}
+			return *(*string)(at), nil
+		}}
+	case lSlice:
+		out = node{class: lSlice, L: func(fr unsafe.Pointer, st map[string]any, d any) (sliceHdr, error) {
+			at, err := load(fr, st, d)
+			if err != nil {
+				return sliceHdr{}, err
+			}
+			return *(*sliceHdr)(at), nil
+		}}
+	case lIface:
+		out = node{class: lIface, I: func(fr unsafe.Pointer, st map[string]any, d any) (ifacePair, error) {
+			at, err := load(fr, st, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			return *(*ifacePair)(at), nil
+		}}
+	}
+
+	if out.class == cl {
+		return out, nil
+	}
+	if cl == lIface {
+		return c.toIface(out, sf.Type, pt)
+	}
+	return node{}, fmt.Errorf("a %s field cannot fill a %s parameter", out.class, cl)
 }
 
 // toIface wraps a computed value as an interface. A pointer-shaped

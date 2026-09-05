@@ -37,6 +37,7 @@ const (
 	vaStack                  // a name read from the caller's stack map
 	vaDest                   // the pointer Scan was handed
 	vaCall                   // a nested call
+	vaField                  // a struct field read off another value
 )
 
 // vmArg is one argument of a compiled call.
@@ -68,6 +69,13 @@ type vmArg struct {
 	// arriving with identical types skips it.
 	iface int
 	conv  ifaceConv
+
+	// vaField: src is the value the field is read from, index the
+	// reflect field path, and deref says src is a pointer to the struct
+	// rather than the struct.
+	src   *vmArg
+	index []int
+	deref bool
 }
 
 // assignCache is one remembered answer to "is this concrete type
@@ -189,6 +197,9 @@ func (p *vmProgram) assignFrame(c *vmCall) {
 	c.off = p.frame
 	p.frame += len(c.args)
 	for _, a := range c.args {
+		for a.kind == vaField {
+			a = a.src
+		}
 		switch a.kind {
 		case vaCall:
 			p.assignFrame(a.sub)
@@ -205,6 +216,24 @@ func (p *vmProgram) assignFrame(c *vmCall) {
 			}
 		}
 	}
+}
+
+// fieldOf resolves name as an exported struct field on t,
+// dereferencing a pointer to a struct. deref reports whether the value
+// has to be dereferenced before the field is read.
+func fieldOf(t reflect.Type, name string) (f reflect.StructField, deref bool, ok bool) {
+	st := t
+	if st.Kind() == reflect.Pointer {
+		st, deref = st.Elem(), true
+	}
+	if st.Kind() != reflect.Struct {
+		return reflect.StructField{}, false, false
+	}
+	f, ok = st.FieldByName(name)
+	if !ok || f.PkgPath != "" {
+		return reflect.StructField{}, false, false
+	}
+	return f, deref, true
 }
 
 // resultType is the static type of the i'th non-error result.
@@ -293,15 +322,26 @@ func (c *Compiler) compileExpr(slots map[string]int, env map[string]reflect.Type
 		if currType == nil {
 			return nil, nil, fmt.Errorf("compile: cannot call %s on a value of unknown type", l.name)
 		}
-		m, ok := currType.MethodByName(l.name)
+		if m, ok := currType.MethodByName(l.name); ok {
+			call, err := c.compileCall(slots, env, m.Func, currType.String()+"."+l.name, recv, l.args)
+			if err != nil {
+				return nil, nil, err
+			}
+			curr, currType = call, c.resultType(call, 0)
+			continue
+		}
+		f, deref, ok := fieldOf(currType, l.name)
 		if !ok {
-			return nil, nil, fmt.Errorf("compile: %s has no method %s", currType, l.name)
+			return nil, nil, fmt.Errorf("compile: %s has no method or field %s", currType, l.name)
 		}
-		call, err := c.compileCall(slots, env, m.Func, currType.String()+"."+l.name, recv, l.args)
-		if err != nil {
-			return nil, nil, err
+		if len(l.args) > 0 {
+			return nil, nil, fmt.Errorf("compile: %s.%s is a field, not a method", currType, l.name)
 		}
-		curr, currType = call, c.resultType(call, 0)
+		// The field becomes the receiver of whatever comes next.
+		// curr goes back to nil so the next link does not overwrite it
+		// with a call result.
+		recv = &vmArg{kind: vaField, src: recv, index: f.Index, deref: deref, typ: f.Type, iface: -1}
+		curr, currType = nil, f.Type
 	}
 
 	if curr == nil {
@@ -384,6 +424,27 @@ func (c *Compiler) compileArg(slots map[string]int, env map[string]reflect.Type,
 			return nil, fmt.Errorf("compile: %s argument %d: cannot use %s as %s", name, pos+1, st, pt)
 		}
 		return &vmArg{kind: vaCall, sub: sub, typ: pt, iface: -1}, nil
+	case argPath:
+		slot, ok := slots[a.path[0]]
+		if !ok {
+			return nil, fmt.Errorf("compile: %s argument %d: %s is not a name bound by the program, so its fields are unknown", name, pos+1, a.path[0])
+		}
+		cur := &vmArg{kind: vaSlot, slot: slot, name: a.path[0], typ: env[a.path[0]], iface: -1}
+		curType := env[a.path[0]]
+		for _, seg := range a.path[1:] {
+			f, deref, ok := fieldOf(curType, seg)
+			if !ok {
+				return nil, fmt.Errorf("compile: %s argument %d: %s has no field %s", name, pos+1, curType, seg)
+			}
+			cur = &vmArg{kind: vaField, src: cur, index: f.Index, deref: deref, typ: f.Type, iface: -1}
+			curType = f.Type
+		}
+		if !curType.AssignableTo(pt) {
+			return nil, fmt.Errorf("compile: %s argument %d: cannot use %s as %s", name, pos+1, curType, pt)
+		}
+		cur.typ = pt
+		return cur, nil
+
 	case argVar:
 		if a.str == "dest" {
 			return &vmArg{kind: vaDest, name: "dest", typ: pt, iface: -1}, nil
@@ -492,6 +553,18 @@ func (a *vmArg) get(slots, frame []reflect.Value, ifaces []ifacePair, stack map[
 			return reflect.Value{}, err
 		}
 		return firstNonErr(out, a.sub.errIdx), nil
+	case vaField:
+		v, err := a.src.get(slots, frame, ifaces, stack, dest)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		if a.deref {
+			if v.IsNil() {
+				return reflect.Value{}, fmt.Errorf("exec: field read on a nil %s", v.Type())
+			}
+			v = v.Elem()
+		}
+		return v.FieldByIndex(a.index), nil
 	case vaDest:
 		if dest == nil {
 			return reflect.Zero(a.typ), fmt.Errorf("exec: dest is only set by Scan")

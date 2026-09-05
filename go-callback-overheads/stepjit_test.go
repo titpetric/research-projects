@@ -70,6 +70,8 @@ func TestStepJITMatchesReflect(t *testing.T) {
 			seen = append(seen, fmt.Sprintf("%T %s %s", x, x.Method, x.URL.Path))
 		case []*http.Cookie:
 			seen = append(seen, fmt.Sprintf("%T len=%d", x, len(x)))
+		case *url.URL:
+			seen = append(seen, fmt.Sprintf("%T %s", x, x.Path))
 		default:
 			seen = append(seen, fmt.Sprintf("%T %v", v, v))
 		}
@@ -103,6 +105,19 @@ func TestStepJITMatchesReflect(t *testing.T) {
 		`,
 		"string from the stack": `
 			json.NewEncoder(dest).Encode(url.Parse(link));
+		`,
+		"field as argument": `
+			req := http.NewRequest("GET", "/");
+			json.NewEncoder(dest).Encode(req.Header);
+		`,
+		"field of a field": `
+			req := http.NewRequest("GET", "/");
+			json.NewEncoder(dest).Encode(req.URL.Path);
+		`,
+		"field through record": `
+			req := http.NewRequest("GET", "/");
+			u := record(req.URL);
+			json.NewEncoder(dest).Encode(u);
 		`,
 	} {
 		stack := map[string]any{"link": "https://example.com/from-stack"}
@@ -321,6 +336,7 @@ func TestPlanInlineLeavesTheTreeAlone(t *testing.T) {
 		t.Errorf("dest = %q, want %q", got, want)
 	}
 }
+
 // TestSupportsReportsTheReason checks the public gate: a program that
 // JITs reports nil, and one that does not names what stopped it.
 func TestSupportsReportsTheReason(t *testing.T) {

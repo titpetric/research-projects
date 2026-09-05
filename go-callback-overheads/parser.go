@@ -15,11 +15,12 @@ import (
 //	expr    := path "(" [ args ] ")" { "." ident "(" [ args ] ")" }
 //	path    := ident { "." ident }
 //	args    := arg { "," arg }
-//	arg     := string | number | name | expr
+//	arg     := string | number | path | expr
 //
-// A path is resolved by the compiler, not here: http.NewRequest is one
-// bound name while req.Cookies is a method on the value held by req,
-// and the parser cannot tell them apart without the bindings.
+// A path is resolved by the compiler, not here. http.NewRequest is one
+// bound name, req.Cookies is a method on the value held by req, and
+// req.Header is a struct field on it; the parser cannot tell the three
+// apart without the bindings and the types.
 //
 // Strings are single- or double-quoted. Numbers map to int64 when they
 // have no decimal point and float64 when they do; no other numeric
@@ -37,12 +38,17 @@ const (
 	argFloat
 	argVar
 	argCall
+	// argPath is a dotted name with no call after it, "req.Header". The
+	// first segment is a name and the rest are field selectors; the
+	// compiler resolves them, because only it knows the types.
+	argPath
 )
 
 // arg is one parsed argument: a literal, a name, or a nested call.
 type arg struct {
 	kind argKind
-	str  string // argString value or argVar name
+	str  string   // argString value or argVar name
+	path []string // argPath segments
 	i    int64
 	f    float64
 	sub  *callExpr // argCall
@@ -287,7 +293,7 @@ func (p *Parser) arg() (arg, error) {
 			return arg{kind: argCall, sub: sub}, nil
 		}
 		if len(path) != 1 {
-			return arg{}, fmt.Errorf("parse: %q is not a name at offset %d", joinPath(path), save)
+			return arg{kind: argPath, path: path}, nil
 		}
 		return arg{kind: argVar, str: path[0]}, nil
 	}
