@@ -150,9 +150,10 @@ Measured against `http.NewRequest`, three findings:
    results slice `reflect.Value.Call` builds on every call.
 3. What is left can be removed. Reinterpreting the bound func as a shape
    type and calling it directly brings allocations back to native's 3
-   and the cost to 39.46n on a 633.4n call, around 7%. That 39.46n buys
-   the map lookup for the variable, its type assertion, and boxing the
-   result into an `any`.
+   and the cost to 39.46n against a 633.4n native call, 6.2%. Across the
+   three counts of the sweep that ratio reads 4.1%, 6.0% and 7.1%; see
+   the spread below. That 39.46n buys the map lookup for the variable,
+   its type assertion, and boxing the result into an `any`.
 
 ## Benchmarks
 
@@ -210,12 +211,11 @@ nice level; unpinned on a shared machine the same native call read 509n
 to 913n between sweeps.
 
 Read the spread before the medians. B/op and allocs/op are identical
-across all three counts of every benchmark. sec/op is not: the
-CostAmortizedCache cost column reads 50.04n, 26.96n and 39.46n against
-native baselines of 706.6n, 663.9n and 655.1n. That cost is a
-difference of two numbers around 650n, so a 7% move in the baseline
-moves it by half its own value. The ordering of the tiers holds at this
-resolution. The JIT tier's cost-ns/op is bounded to tens of
+across all three counts of every benchmark; sec/op is not. The JIT
+tier's cost is a difference of two numbers around 650n, so a few
+percent of drift in the baseline moves it by half its own value, which
+is the 4.1% to 7.1% range quoted above. The ordering of the tiers holds
+at this resolution. The JIT tier's cost-ns/op is bounded to tens of
 nanoseconds, not resolved to a figure.
 
 For a profile of the cached path:
