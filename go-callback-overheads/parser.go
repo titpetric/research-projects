@@ -11,9 +11,9 @@ import (
 //
 //	program := { stmt }
 //	stmt    := "var" name typeref ";"
-//	         | "return" [ expr ] ";"
+//	         | "return" [ arg ] ";"
 //	         | [ name { "," name } ( ":=" | "=" ) ] rhs ";"
-//	rhs     := expr | string | number
+//	rhs     := expr | string | number | "true" | "false" | "nil"
 //	typeref := { "*" | "[]" } path
 //	expr    := path "(" [ args ] ")" { "." ident "(" [ args ] ")" }
 //	path    := ident { "." ident }
@@ -40,6 +40,10 @@ const (
 	argInt
 	argFloat
 	argVar
+	argBool
+	// argNil is the nil literal: the zero value of whatever nilable
+	// parameter it fills.
+	argNil
 	argCall
 	// argPath is a dotted name with no call after it, "req.Header". The
 	// first segment is a name and the rest are field selectors; the
@@ -54,6 +58,7 @@ type arg struct {
 	path []string // argPath segments
 	i    int64
 	f    float64
+	b    bool      // argBool
 	sub  *callExpr // argCall
 }
 
@@ -89,6 +94,10 @@ type stmt struct {
 	// zero value of a named type in scope.
 	varName string
 	varType string
+
+	// retVal is a return statement's value when it is not a call:
+	// "return x;", "return req.Header;", "return 5;".
+	retVal *arg
 }
 
 // program is a parsed source unit.
@@ -159,11 +168,15 @@ func (p *Parser) stmt() (stmt, error) {
 		if p.consume(';') {
 			return s, nil
 		}
-		call, err := p.expr()
+		a, err := p.arg()
 		if err != nil {
 			return s, err
 		}
-		s.call = call
+		if a.kind == argCall {
+			s.call = a.sub
+		} else {
+			s.retVal = &a
+		}
 		if !p.consume(';') {
 			return s, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
 		}
@@ -181,15 +194,21 @@ func (p *Parser) stmt() (stmt, error) {
 		lhs, define = nil, false
 	}
 
-	// A literal right-hand side is not a call, so it is read here
-	// rather than through expr.
+	// The right-hand side is one arg: a call is the statement, a
+	// literal assigns, and a bare name is rejected here with its own
+	// message rather than surfacing as "expected '('".
 	if len(lhs) > 0 {
-		p.skipSpace()
-		if c := p.peek(); c == '"' || c == '\'' || c == '-' || (c >= '0' && c <= '9') {
-			a, err := p.arg()
-			if err != nil {
-				return stmt{}, err
-			}
+		save := p.pos
+		a, err := p.arg()
+		if err != nil {
+			return stmt{}, err
+		}
+		switch a.kind {
+		case argCall:
+			p.pos = save
+		case argVar, argPath:
+			return stmt{}, fmt.Errorf("parse: cannot assign a name to a name at offset %d", save)
+		default:
 			if !p.consume(';') {
 				return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
 			}
@@ -364,6 +383,17 @@ func (p *Parser) arg() (arg, error) {
 		}
 		if len(path) != 1 {
 			return arg{kind: argPath, path: path}, nil
+		}
+		// Keywords, not names. Before this they parsed as variable
+		// references, missed the stack, and zero-filled: wantBool(true)
+		// compiled and handed the callee false.
+		switch path[0] {
+		case "true":
+			return arg{kind: argBool, b: true}, nil
+		case "false":
+			return arg{kind: argBool}, nil
+		case "nil":
+			return arg{kind: argNil}, nil
 		}
 		return arg{kind: argVar, str: path[0]}, nil
 	}

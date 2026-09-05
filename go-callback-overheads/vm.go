@@ -117,6 +117,10 @@ type vmStmt struct {
 	// lit is the value of a literal assignment, "x = 123", already
 	// converted to the slot's type.
 	lit reflect.Value
+
+	// retArg is a return statement's value when it is not a call:
+	// a name, a field read, or a literal.
+	retArg *vmArg
 }
 
 // slotInit is the zero value a var statement puts in scope before the
@@ -207,6 +211,9 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 			t, ok := env[name]
 			if !ok {
 				t = c.inferLiteralType(prog, name, *s.lit)
+				if t == nil {
+					return nil, fmt.Errorf("compile: %s = nil needs a var declaration or a use to take a type from", name)
+				}
 			}
 			v, err := literalValue(*s.lit, t)
 			if err != nil {
@@ -217,6 +224,14 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 			continue
 		}
 
+		if s.retVal != nil {
+			ra, err := c.compileRetVal(slots, env, *s.retVal)
+			if err != nil {
+				return nil, err
+			}
+			p.stmts = append(p.stmts, vmStmt{ret: true, retArg: ra})
+			continue
+		}
 		if s.call == nil {
 			// A bare "return;".
 			p.stmts = append(p.stmts, vmStmt{ret: true})
@@ -280,8 +295,32 @@ func (p *vmProgram) assignFrame(c *vmCall) {
 	}
 }
 
+// nilAs is the value the nil literal takes for a parameter type:
+// the zero value when the type can hold nil, an error when it cannot.
+func nilAs(pt reflect.Type) (reflect.Value, error) {
+	switch pt.Kind() {
+	case reflect.Pointer, reflect.UnsafePointer, reflect.Interface, reflect.Slice,
+		reflect.Map, reflect.Chan, reflect.Func:
+		return reflect.Zero(pt), nil
+	}
+	return reflect.Value{}, fmt.Errorf("cannot use nil as %s", pt)
+}
+
 // literalValue converts a parsed literal to type t.
 func literalValue(a arg, t reflect.Type) (reflect.Value, error) {
+	if a.kind == argBool {
+		v := reflect.ValueOf(a.b)
+		if t.Kind() == reflect.Interface && t.NumMethod() == 0 {
+			return v, nil
+		}
+		if !v.Type().AssignableTo(t) {
+			return reflect.Value{}, fmt.Errorf("cannot use %v as %s", a.b, t)
+		}
+		return v, nil
+	}
+	if a.kind == argNil {
+		return nilAs(t)
+	}
 	if a.kind == argString {
 		v := reflect.ValueOf(a.str)
 		if !v.Type().AssignableTo(t) {
@@ -308,11 +347,17 @@ func (c *Compiler) inferLiteralType(prog *program, name string, lit arg) reflect
 			}
 		}
 	}
-	if lit.kind == argFloat {
+	switch lit.kind {
+	case argFloat:
 		return reflect.TypeFor[float64]()
-	}
-	if lit.kind == argString {
+	case argString:
 		return reflect.TypeFor[string]()
+	case argBool:
+		return reflect.TypeFor[bool]()
+	case argNil:
+		// nil alone names no type; the any it would infer to is never
+		// what the program meant, so the caller reports it.
+		return nil
 	}
 	return reflect.TypeFor[int64]()
 }
@@ -422,6 +467,34 @@ func fieldOf(t reflect.Type, name string) (f reflect.StructField, deref bool, ok
 		return reflect.StructField{}, false, false
 	}
 	return f, deref, true
+}
+
+// compileRetVal compiles the value of a "return x;" form. The
+// parameter type it is compiled against is its own: a program-bound
+// name uses its static type, a stack name has none and is returned as
+// it is, a literal keeps its natural width.
+func (c *Compiler) compileRetVal(slots map[string]int, env map[string]reflect.Type, a arg) (*vmArg, error) {
+	pt := reflect.TypeFor[any]()
+	switch a.kind {
+	case argVar:
+		if t, ok := env[a.str]; ok && t != nil {
+			pt = t
+		}
+	case argString:
+		pt = reflect.TypeFor[string]()
+	case argInt:
+		pt = reflect.TypeFor[int64]()
+	case argFloat:
+		pt = reflect.TypeFor[float64]()
+	case argBool:
+		pt = reflect.TypeFor[bool]()
+	case argNil:
+		return nil, fmt.Errorf("compile: return nil returns no value, use return;")
+	case argPath:
+		// compileArg resolves the fields and checks assignability
+		// against pt, so any is what lets the field keep its own type.
+	}
+	return c.compileArg(slots, env, "return", 0, pt, a)
 }
 
 // resultType is the static type of the i'th non-error result.
@@ -594,6 +667,14 @@ func (c *Compiler) compileCall(slots map[string]int, env map[string]reflect.Type
 func (c *Compiler) compileArg(slots map[string]int, env map[string]reflect.Type, name string, pos int, pt reflect.Type, a arg) (*vmArg, error) {
 	var v reflect.Value
 	switch a.kind {
+	case argBool:
+		v = reflect.ValueOf(a.b)
+	case argNil:
+		z, err := nilAs(pt)
+		if err != nil {
+			return nil, fmt.Errorf("compile: %s argument %d: %w", name, pos+1, err)
+		}
+		return &vmArg{kind: vaConst, val: z, typ: pt, iface: -1}, nil
 	case argString:
 		v = reflect.ValueOf(a.str)
 	case argInt, argFloat:
@@ -679,6 +760,16 @@ func (p *vmProgram) run(stack map[string]any, dest any) (any, error) {
 		if s.lit.IsValid() {
 			slots[s.out[0]] = s.lit
 			continue
+		}
+		if s.retArg != nil {
+			v, err := s.retArg.get(slots, frame, ifaces, stack, dest)
+			if err != nil {
+				return nil, err
+			}
+			if !v.IsValid() {
+				return nil, nil
+			}
+			return v.Interface(), nil
 		}
 		if s.call == nil {
 			return nil, nil

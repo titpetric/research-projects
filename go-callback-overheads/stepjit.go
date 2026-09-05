@@ -528,9 +528,142 @@ func ptrScalarCall(fptr unsafe.Pointer, out layout, a node) (node, bool) {
 	return node{}, false
 }
 
+// getterFor adapts a scalar node into a typed getter, converting from
+// the width-erased carriers back to the exact Go type T.
+func getterFor[T any](a node, fromN func(uint64) T, fromF func(float64) T) func(unsafe.Pointer, map[string]any, any) (T, error) {
+	if a.class.float() {
+		f := a.F
+		return func(fr unsafe.Pointer, st map[string]any, d any) (T, error) {
+			v, err := f(fr, st, d)
+			if err != nil {
+				var zero T
+				return zero, err
+			}
+			return fromF(v), nil
+		}
+	}
+	f := a.N
+	return func(fr unsafe.Pointer, st map[string]any, d any) (T, error) {
+		v, err := f(fr, st, d)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		return fromN(v), nil
+	}
+}
+
+// mixed2 builds the node for a two-parameter call whose second
+// parameter is a scalar of type T and whose first is a string or a
+// pointer. res is the result half of the shape key. One generic body
+// covers every width; the per-width dispatch below only bakes the
+// conversion.
+func mixed2[T any](fptr unsafe.Pointer, first layout, res string, a0 node, get func(unsafe.Pointer, map[string]any, any) (T, error)) (node, bool) {
+	switch {
+	case first == lStr && res == "PE":
+		f, s0 := castFn[func(string, T) (unsafe.Pointer, ifacePair)](fptr), a0.S
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			x0, err := s0(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			x1, err := get(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			p, e := f(x0, x1)
+			if err := asError(e); err != nil {
+				return nil, err
+			}
+			return p, nil
+		}}, true
+	case first == lStr && res == "E":
+		f, s0 := castFn[func(string, T) ifacePair](fptr), a0.S
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			x0, err := s0(fr, st, d)
+			if err != nil {
+				return err
+			}
+			x1, err := get(fr, st, d)
+			if err != nil {
+				return err
+			}
+			return asError(f(x0, x1))
+		}}, true
+	case first == lPtr && res == "PE":
+		f, p0 := castFn[func(unsafe.Pointer, T) (unsafe.Pointer, ifacePair)](fptr), a0.P
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			x0, err := p0(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			x1, err := get(fr, st, d)
+			if err != nil {
+				return nil, err
+			}
+			p, e := f(x0, x1)
+			if err := asError(e); err != nil {
+				return nil, err
+			}
+			return p, nil
+		}}, true
+	case first == lPtr && res == "E":
+		f, p0 := castFn[func(unsafe.Pointer, T) ifacePair](fptr), a0.P
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			x0, err := p0(fr, st, d)
+			if err != nil {
+				return err
+			}
+			x1, err := get(fr, st, d)
+			if err != nil {
+				return err
+			}
+			return asError(f(x0, x1))
+		}}, true
+	}
+	return node{}, false
+}
+
+// mixedScalarCall dispatches a (fixed, scalar) call to mixed2 with the
+// width baked into the getter.
+func mixedScalarCall(fptr unsafe.Pointer, first layout, res string, a0, a1 node) (node, bool) {
+	switch a1.class {
+	case lBool:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) bool { return n != 0 }, nil))
+	case lI8:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) int8 { return int8(uint8(n)) }, nil))
+	case lI16:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) int16 { return int16(uint16(n)) }, nil))
+	case lI32:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) int32 { return int32(uint32(n)) }, nil))
+	case lI64:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) int64 { return int64(n) }, nil))
+	case lU8:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) uint8 { return uint8(n) }, nil))
+	case lU16:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) uint16 { return uint16(n) }, nil))
+	case lU32:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) uint32 { return uint32(n) }, nil))
+	case lU64:
+		return mixed2(fptr, first, res, a0, getterFor(a1, func(n uint64) uint64 { return n }, nil))
+	case lF32:
+		return mixed2(fptr, first, res, a0, getterFor(a1, nil, func(v float64) float32 { return float32(v) }))
+	case lF64:
+		return mixed2(fptr, first, res, a0, getterFor(a1, nil, func(v float64) float64 { return v }))
+	}
+	return node{}, false
+}
+
 // callNode builds the node for one call from the nodes of its
 // arguments, or reports that the shape is outside the table.
 func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
+	if i := strings.IndexByte(key, '_'); i > 0 && len(a) == 2 {
+		if (a[0].class == lStr || a[0].class == lPtr) && a[1].class.scalar() {
+			if n, ok := mixedScalarCall(fptr, a[0].class, key[i+1:], a[0], a[1]); ok {
+				return n, true
+			}
+		}
+	}
 	if i := strings.IndexByte(key, '_'); i > 0 && len(a) == 1 {
 		if a[0].class.scalar() {
 			if n, ok := scalarCall(fptr, a[0].class, key[i+1:], a[0]); ok {
@@ -797,14 +930,14 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 		return nil, fmt.Errorf("a name is reassigned at a different type")
 	}
 
-	stmts, live, writes, splices, err := planInline(p)
+	plan, err := planInline(p)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &jitCompiler{slotOf: map[int]int{}, writes: writes, splices: splices}
+	c := &jitCompiler{slotOf: map[int]int{}, writes: plan.writes, splices: plan.splices}
 	for slot := 0; slot < p.nslots; slot++ {
-		if !live[slot] {
+		if !plan.live[slot] {
 			continue
 		}
 		t := p.slotTypes[slot]
@@ -829,12 +962,19 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 		}
 	}
 
-	for _, s := range stmts {
+	for _, s := range plan.stmts {
 		stmt, err := c.stmtNode(s, jp)
 		if err != nil {
 			return nil, err
 		}
 		jp.stmts = append(jp.stmts, stmt)
+	}
+	if plan.retSlot >= 0 {
+		field, ok := c.slotOf[plan.retSlot]
+		if !ok {
+			return nil, fmt.Errorf("a returned name has no slot")
+		}
+		jp.retType, jp.retOff = c.types[field], c.offs[field]
 	}
 	return jp, nil
 }
@@ -850,6 +990,17 @@ type plannedStmt struct {
 	lit reflect.Value
 }
 
+// jitPlan is everything planInline works out for the compiler.
+type jitPlan struct {
+	stmts   []plannedStmt
+	live    map[int]bool
+	writes  map[int]int
+	splices map[*vmArg]*vmCall
+	// retSlot is the slot a "return name;" reads, -1 when the program
+	// returns through a trailing call or not at all.
+	retSlot int
+}
+
 // planInline drops a statement whose single result is read exactly once
 // by a later statement, splicing the call into the reader's argument
 // tree. The value then travels as a closure's return value and needs no
@@ -860,10 +1011,24 @@ type plannedStmt struct {
 // source wrote. A receiver is argument zero and always qualifies, so a
 // method chain written across statements collapses exactly as the same
 // chain written on one line does.
-func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vmArg]*vmCall, error) {
+func planInline(p *vmProgram) (*jitPlan, error) {
+	retSlot := -1
 	stmts := make([]plannedStmt, 0, len(p.stmts))
 	for i := range p.stmts {
 		s := &p.stmts[i]
+		if s.retArg != nil {
+			// Only a name that already has a slot returns on this
+			// tier. A field read, a literal or a stack name in return
+			// position is rare enough that the reflect evaluator keeps
+			// it; what must not happen is the statement being skipped,
+			// which would silently return nil where reflect returns
+			// the value.
+			if s.retArg.kind != vaSlot {
+				return nil, fmt.Errorf("a returned expression is not in the table")
+			}
+			retSlot = s.retArg.slot
+			continue
+		}
 		if s.lit.IsValid() {
 			out := -1
 			if len(s.out) > 0 {
@@ -876,7 +1041,7 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 			continue // a bare "return;" leaves the program without a value
 		}
 		if s.ret && i != len(p.stmts)-1 {
-			return nil, nil, nil, nil, fmt.Errorf("a return before the last statement is not a straight line")
+			return nil, fmt.Errorf("a return before the last statement is not a straight line")
 		}
 		out := -1
 		if len(s.out) > 0 {
@@ -886,6 +1051,9 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 	}
 
 	reads := map[int]int{}
+	if retSlot >= 0 {
+		reads[retSlot]++
+	}
 	for _, s := range stmts {
 		if s.call != nil {
 			countReads(s.call, reads)
@@ -915,6 +1083,9 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 
 	live := map[int]bool{}
 	writes := map[int]int{}
+	if retSlot >= 0 {
+		live[retSlot] = true
+	}
 	// A var declaration puts a name in scope whether or not anything
 	// assigns it, so its slot is live from the start. The frame comes
 	// back zeroed, which is exactly the zero value the declaration
@@ -929,10 +1100,10 @@ func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vm
 			writes[s.out]++
 		}
 		if s.ret && s.call.nres > 0 && s.out < 0 {
-			return nil, nil, nil, nil, fmt.Errorf("a returned value needs a slot")
+			return nil, fmt.Errorf("a returned value needs a slot")
 		}
 	}
-	return stmts, live, writes, splices, nil
+	return &jitPlan{stmts: stmts, live: live, writes: writes, splices: splices, retSlot: retSlot}, nil
 }
 
 // countReads tallies how many times each name is read, which decides
@@ -1510,10 +1681,22 @@ func constNode(cl layout, v reflect.Value) (node, error) {
 		}
 		return node{class: lPtr, P: func(unsafe.Pointer, map[string]any, any) (unsafe.Pointer, error) { return nil, nil }}, nil
 	case lIface:
-		if !v.IsZero() {
-			return node{}, fmt.Errorf("only a nil interface can be a constant")
+		if v.IsZero() && v.Kind() == reflect.Interface {
+			return node{class: lIface, I: func(unsafe.Pointer, map[string]any, any) (ifacePair, error) { return ifacePair{}, nil }}, nil
 		}
-		return node{class: lIface, I: func(unsafe.Pointer, map[string]any, any) (ifacePair, error) { return ifacePair{}, nil }}, nil
+		// A non-nil constant boxes once at compile time. The cell is a
+		// heap value reflect allocated; the closure keeps it reachable,
+		// and both words of the pair are pointers the collector traces.
+		// Sharing one box across calls is safe because a literal is
+		// immutable.
+		cell := reflect.New(reflect.TypeFor[any]()).Elem()
+		cell.Set(v)
+		pair := *(*ifacePair)(cell.Addr().UnsafePointer())
+		keep := cell
+		return node{class: lIface, I: func(unsafe.Pointer, map[string]any, any) (ifacePair, error) {
+			_ = keep
+			return pair, nil
+		}}, nil
 	case lSlice:
 		if !v.IsZero() {
 			return node{}, fmt.Errorf("only a nil slice can be a constant")
@@ -1576,7 +1759,110 @@ func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, e
 			return pair, nil
 		}}, nil
 	}
+	if cl.scalar() {
+		if isDest {
+			return node{}, fmt.Errorf("dest cannot fill a %s parameter", cl)
+		}
+		return stackScalarNode(name, pt, cl)
+	}
 	return node{}, fmt.Errorf("a stack value cannot fill a %s parameter", cl)
+}
+
+// stackScalarNode reads a scalar off the caller's stack. The stack
+// holds any, so the read is one type assertion against the exact
+// parameter type; a named scalar type would need reflect to check and
+// stays on the reflect evaluator. An unset or nil entry is the zero
+// value, like every other stack read.
+func stackScalarNode(name string, pt reflect.Type, cl layout) (node, error) {
+	get := stackScalarConvs[pt]
+	if get == nil {
+		return node{}, fmt.Errorf("a stack value of named type %s stays on the reflect tier", pt)
+	}
+	if cl.float() {
+		return node{class: cl, F: func(_ unsafe.Pointer, st map[string]any, _ any) (float64, error) {
+			v, ok := st[name]
+			if !ok || v == nil {
+				return 0, nil
+			}
+			bits, fl, ok := get(v)
+			if !ok {
+				return 0, fmt.Errorf("exec: variable %q: cannot use %T as %s", name, v, pt)
+			}
+			_ = bits
+			return fl, nil
+		}}, nil
+	}
+	return node{class: cl, N: func(_ unsafe.Pointer, st map[string]any, _ any) (uint64, error) {
+		v, ok := st[name]
+		if !ok || v == nil {
+			return 0, nil
+		}
+		bits, _, ok := get(v)
+		if !ok {
+			return 0, fmt.Errorf("exec: variable %q: cannot use %T as %s", name, v, pt)
+		}
+		return bits, nil
+	}}, nil
+}
+
+// stackScalarConvs asserts a stack any to each predeclared scalar type
+// and reports its bits. Keyed by exact type, so a named type misses.
+var stackScalarConvs = map[reflect.Type]func(any) (uint64, float64, bool){
+	reflect.TypeFor[bool](): func(v any) (uint64, float64, bool) {
+		b, ok := v.(bool)
+		if b {
+			return 1, 0, ok
+		}
+		return 0, 0, ok
+	},
+	reflect.TypeFor[int](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(int)
+		return uint64(int64(n)), 0, ok
+	},
+	reflect.TypeFor[int8](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(int8)
+		return uint64(uint8(n)), 0, ok
+	},
+	reflect.TypeFor[int16](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(int16)
+		return uint64(uint16(n)), 0, ok
+	},
+	reflect.TypeFor[int32](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(int32)
+		return uint64(uint32(n)), 0, ok
+	},
+	reflect.TypeFor[int64](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(int64)
+		return uint64(n), 0, ok
+	},
+	reflect.TypeFor[uint](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(uint)
+		return uint64(n), 0, ok
+	},
+	reflect.TypeFor[uint8](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(uint8)
+		return uint64(n), 0, ok
+	},
+	reflect.TypeFor[uint16](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(uint16)
+		return uint64(n), 0, ok
+	},
+	reflect.TypeFor[uint32](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(uint32)
+		return uint64(n), 0, ok
+	},
+	reflect.TypeFor[uint64](): func(v any) (uint64, float64, bool) {
+		n, ok := v.(uint64)
+		return n, 0, ok
+	},
+	reflect.TypeFor[float32](): func(v any) (uint64, float64, bool) {
+		f, ok := v.(float32)
+		return 0, float64(f), ok
+	},
+	reflect.TypeFor[float64](): func(v any) (uint64, float64, bool) {
+		f, ok := v.(float64)
+		return 0, f, ok
+	},
 }
 
 // callResultType is the static type of a call's i'th non-error result.
