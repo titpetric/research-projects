@@ -8,26 +8,14 @@ import (
 )
 
 // unsafeNew is the allocator reflect.New itself calls. Going straight
-// to it skips reflect.New's pointer-type lookup, which showed up as 12%
-// of the JIT'd program's time for an allocation the callee pays for
-// anyway. The argument is the frame struct's rtype, so the block comes
-// back with the right size and pointer map and the collector scans the
-// slots correctly.
+// to it skips reflect.New's pointer-type lookup. The argument is the
+// frame struct's rtype, so the block comes back with the right size and
+// pointer map and the collector scans the slots correctly.
 //
 //go:linkname unsafeNew reflect.unsafe_New
 func unsafeNew(rtype unsafe.Pointer) unsafe.Pointer
 
-// The step JIT: the shape table applied to every call of a program
-// rather than to a single statement.
-//
-// Three things make it possible.
-//
-// Slots live in one struct. reflect.StructOf builds a type whose fields
-// are exactly the program's slot types, so reflect.New gives a single
-// allocation with a correct pointer map and a stable address per field.
-// Raw words are read and written at those offsets; because the fields
-// carry the real types, every store through them emits the write
-// barrier the garbage collector needs.
+// The step JIT compiles a program into a tree of typed closures.
 //
 // Calls are made through layout classes, not types. A parameter or
 // result is one of four shapes: pointer-shaped (one word), string (two),
@@ -35,15 +23,21 @@ func unsafeNew(rtype unsafe.Pointer) unsafe.Pointer
 // shape in the table is reinterpreted as the shape type and called
 // directly, exactly as jit.go does for a single statement.
 //
+// A value flows from the call that produces it to the call that
+// consumes it as the return value of a closure, so it lives in a Go
+// local and needs no storage of its own. Only a name read by a later
+// statement gets a frame slot, and a program with no such name
+// allocates nothing beyond what its bindings allocate.
+//
 // Interface arguments carry a precomputed itab. Both the concrete type
 // and the interface type are known when the program compiles, and an
 // itab depends on nothing else, so the pair is built once with reflect
 // and only the data word varies per call.
 //
-// A program JITs whole or not at all. One step outside the table sends
-// the program to the reflect evaluator in vm.go, which stays the
-// general mechanism, and the equivalence test in stepjit_test.go pins
-// the two against each other.
+// A program JITs whole or not at all. One call outside the table sends
+// it to the reflect evaluator in vm.go, which stays the general
+// mechanism, and the equivalence test in stepjit_test.go pins the two
+// against each other.
 
 // sliceHdr mirrors the three words of a slice.
 type sliceHdr struct {
@@ -62,6 +56,7 @@ const (
 	lIface        // two words
 	lSlice        // three words
 	lErr          // a trailing error result, two words
+	lNone         // a call with no result other than a possible error
 )
 
 func layoutOf(t reflect.Type) layout {
@@ -90,6 +85,8 @@ func (l layout) String() string {
 		return "L"
 	case lErr:
 		return "E"
+	case lNone:
+		return ""
 	}
 	return "?"
 }
@@ -112,113 +109,33 @@ func itabFor(ct, it reflect.Type) (unsafe.Pointer, bool) {
 	return pair.tab, true
 }
 
-// jitArgKind is where one argument of a JIT'd step comes from.
-type jitArgKind int
-
-const (
-	jaConst jitArgKind = iota
-	jaSlot
-	jaStack
-	jaDest
+// The node types, one per layout class. Each evaluates its subtree and
+// returns the value in that class. f is the frame, nil for a program
+// that needs no slots.
+type (
+	nodeP func(f unsafe.Pointer, stack map[string]any, dest any) (unsafe.Pointer, error)
+	nodeS func(f unsafe.Pointer, stack map[string]any, dest any) (string, error)
+	nodeI func(f unsafe.Pointer, stack map[string]any, dest any) (ifacePair, error)
+	nodeL func(f unsafe.Pointer, stack map[string]any, dest any) (sliceHdr, error)
+	nodeE func(f unsafe.Pointer, stack map[string]any, dest any) error
 )
 
-// jitArg is one argument of a JIT'd step, resolved to raw words.
-type jitArg struct {
-	kind jitArgKind
-	off  uintptr // jaSlot: byte offset of the slot within the frame
-
-	cstr   string // jaConst
-	cptr   unsafe.Pointer
-	ciface ifacePair
-
-	// Filling an interface parameter from a slot that holds a concrete
-	// type. tab is that pair's interface table; direct says the slot
-	// word is itself the data word rather than being pointed at.
-	tab    unsafe.Pointer
-	direct bool
-
-	name string       // jaStack diagnostics
-	typ  reflect.Type // the parameter type
-	conv ifaceConv    // jaStack and jaDest into an interface parameter
+// node is one compiled expression. Exactly one closure is set, named by
+// class; lNone marks a call with no result, which only E carries.
+type node struct {
+	class layout
+	P     nodeP
+	S     nodeS
+	I     nodeI
+	L     nodeL
+	E     nodeE
 }
 
-func (a *jitArg) str(f unsafe.Pointer, stack map[string]any) (string, error) {
-	switch a.kind {
-	case jaConst:
-		return a.cstr, nil
-	case jaSlot:
-		return *(*string)(unsafe.Add(f, a.off)), nil
-	default:
-		v, ok := stack[a.name]
-		if !ok || v == nil {
-			return "", nil
-		}
-		s, ok := v.(string)
-		if !ok {
-			return "", fmt.Errorf("exec: variable %q: cannot use %T as string", a.name, v)
-		}
-		return s, nil
-	}
-}
-
-func (a *jitArg) ptr(f unsafe.Pointer) unsafe.Pointer {
-	if a.kind == jaSlot {
-		return *(*unsafe.Pointer)(unsafe.Add(f, a.off))
-	}
-	return a.cptr
-}
-
-func (a *jitArg) iface(f unsafe.Pointer, stack map[string]any, dest any) (ifacePair, error) {
-	switch a.kind {
-	case jaConst:
-		return a.ciface, nil
-	case jaSlot:
-		p := unsafe.Add(f, a.off)
-		switch {
-		case a.tab == nil:
-			// The slot is itself an interface: both words travel.
-			return *(*ifacePair)(p), nil
-		case a.direct:
-			return ifacePair{tab: a.tab, data: *(*unsafe.Pointer)(p)}, nil
-		default:
-			// Indirect: the data word points at the slot. The frame is
-			// heap-allocated and outlives the call, and the compiler
-			// only takes this path for a slot written once, so nothing
-			// can change the value behind a live interface.
-			return ifacePair{tab: a.tab, data: p}, nil
-		}
-	case jaDest:
-		if dest == nil {
-			return ifacePair{}, fmt.Errorf("exec: dest is only set by Scan")
-		}
-		pair, ok := a.conv(dest)
-		if !ok {
-			return ifacePair{}, fmt.Errorf("exec: variable \"dest\": cannot use %T as %s", dest, a.typ)
-		}
-		return pair, nil
-	default:
-		v, ok := stack[a.name]
-		if !ok || v == nil {
-			return ifacePair{}, nil
-		}
-		pair, ok := a.conv(v)
-		if !ok {
-			return ifacePair{}, fmt.Errorf("exec: variable %q: cannot use %T as %s", a.name, v, a.typ)
-		}
-		return pair, nil
-	}
-}
-
-// jitStep is one compiled call: it reads its arguments out of the frame,
-// calls the binding directly, and writes the results back. A non-nil
-// error result stops the program.
-type jitStep func(f unsafe.Pointer, stack map[string]any, dest any) error
-
-// jitProgram is a program whose every step JITs.
+// jitProgram is a program whose every call JITs.
 type jitProgram struct {
 	frameType reflect.Type
-	frameRT   unsafe.Pointer // frameType's rtype, for unsafeNew
-	steps     []jitStep
+	frameRT   unsafe.Pointer // nil when the program needs no slots
+	stmts     []nodeE
 
 	// retType and retOff describe the slot a trailing "return expr;"
 	// leaves its value in. retType is nil when the program has no
@@ -228,9 +145,12 @@ type jitProgram struct {
 }
 
 func (p *jitProgram) run(stack map[string]any, dest any) (any, error) {
-	f := unsafeNew(p.frameRT)
-	for _, step := range p.steps {
-		if err := step(f, stack, dest); err != nil {
+	var f unsafe.Pointer
+	if p.frameRT != nil {
+		f = unsafeNew(p.frameRT)
+	}
+	for _, stmt := range p.stmts {
+		if err := stmt(f, stack, dest); err != nil {
 			return nil, err
 		}
 	}
@@ -248,18 +168,9 @@ func asError(e ifacePair) error {
 	return *(*error)(unsafe.Pointer(&e))
 }
 
-func storeSlice(f unsafe.Pointer, off uintptr, h sliceHdr) { *(*sliceHdr)(unsafe.Add(f, off)) = h }
-func storeIface(f unsafe.Pointer, off uintptr, i ifacePair) {
-	*(*ifacePair)(unsafe.Add(f, off)) = i
-}
-func storeStr(f unsafe.Pointer, off uintptr, s string) { *(*string)(unsafe.Add(f, off)) = s }
-func storePtr(f unsafe.Pointer, off uintptr, p unsafe.Pointer) {
-	*(*unsafe.Pointer)(unsafe.Add(f, off)) = p
-}
-
-// Step shape types. The name lists the parameter classes, an underscore,
+// Shape types. The name lists the parameter classes, an underscore,
 // then the result classes, with E for a trailing error. Adding a shape
-// is one type and one case in stepFor.
+// is one type and one case in callNode.
 type (
 	stP_L    = func(unsafe.Pointer) sliceHdr
 	stI_P    = func(ifacePair) unsafe.Pointer
@@ -267,321 +178,740 @@ type (
 	stSSI_PE = func(string, string, ifacePair) (unsafe.Pointer, ifacePair)
 	stSS_PE  = func(string, string) (unsafe.Pointer, ifacePair)
 	stS_PE   = func(string) (unsafe.Pointer, ifacePair)
+	stI_PE   = func(ifacePair) (unsafe.Pointer, ifacePair)
 	stS_P    = func(string) unsafe.Pointer
 	stP_P    = func(unsafe.Pointer) unsafe.Pointer
 	stP_S    = func(unsafe.Pointer) string
+	stP_I    = func(unsafe.Pointer) ifacePair
 	stP_E    = func(unsafe.Pointer) ifacePair
 	stPP_E   = func(unsafe.Pointer, unsafe.Pointer) ifacePair
 	stII_E   = func(ifacePair, ifacePair) ifacePair
-	stP_I    = func(unsafe.Pointer) ifacePair
-	stI_PE   = func(ifacePair) (unsafe.Pointer, ifacePair)
+	stSS_E   = func(string, string) ifacePair
 )
 
-// dropSlot marks a result the program does not bind.
-const dropSlot = ^uintptr(0)
-
-// stepFor builds the closure for one call, or reports that the shape is
-// outside the table. outs holds a frame offset for each non-error
-// result, in declaration order.
-func stepFor(key string, fptr unsafe.Pointer, args []*jitArg, outs []uintptr) (jitStep, bool) {
+// callNode builds the node for one call from the nodes of its
+// arguments, or reports that the shape is outside the table.
+func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 	switch key {
 	case "P_L":
-		f, a0, o0 := castFn[stP_L](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, _ map[string]any, _ any) error {
-			h := f(a0.ptr(fr))
-			if o0 != dropSlot {
-				storeSlice(fr, o0, h)
+		f, a0 := castFn[stP_L](fptr), a[0].P
+		return node{class: lSlice, L: func(fr unsafe.Pointer, st map[string]any, d any) (sliceHdr, error) {
+			p, err := a0(fr, st, d)
+			if err != nil {
+				return sliceHdr{}, err
 			}
-			return nil
-		}, true
+			return f(p), nil
+		}}, true
 
 	case "I_P":
-		f, a0, o0 := castFn[stI_P](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, stack map[string]any, dest any) error {
-			i0, err := a0.iface(fr, stack, dest)
+		f, a0 := castFn[stI_P](fptr), a[0].I
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			i0, err := a0(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if p := f(i0); o0 != dropSlot {
-				storePtr(fr, o0, p)
-			}
-			return nil
-		}, true
+			return f(i0), nil
+		}}, true
 
 	case "PI_E":
-		f, a0, a1 := castFn[stPI_E](fptr), args[0], args[1]
-		return func(fr unsafe.Pointer, stack map[string]any, dest any) error {
-			i1, err := a1.iface(fr, stack, dest)
+		f, a0, a1 := castFn[stPI_E](fptr), a[0].P, a[1].I
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			p0, err := a0(fr, st, d)
 			if err != nil {
 				return err
 			}
-			return asError(f(a0.ptr(fr), i1))
-		}, true
+			i1, err := a1(fr, st, d)
+			if err != nil {
+				return err
+			}
+			return asError(f(p0, i1))
+		}}, true
 
 	case "SSI_PE":
-		f, a0, a1, a2, o0 := castFn[stSSI_PE](fptr), args[0], args[1], args[2], outs[0]
-		return func(fr unsafe.Pointer, stack map[string]any, dest any) error {
-			s0, err := a0.str(fr, stack)
+		f, a0, a1, a2 := castFn[stSSI_PE](fptr), a[0].S, a[1].S, a[2].I
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			s1, err := a1.str(fr, stack)
+			s1, err := a1(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			i2, err := a2.iface(fr, stack, dest)
+			i2, err := a2(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			p, e := f(s0, s1, i2)
 			if err := asError(e); err != nil {
-				return err
+				return nil, err
 			}
-			if o0 != dropSlot {
-				storePtr(fr, o0, p)
-			}
-			return nil
-		}, true
+			return p, nil
+		}}, true
 
 	case "SS_PE":
-		f, a0, a1, o0 := castFn[stSS_PE](fptr), args[0], args[1], outs[0]
-		return func(fr unsafe.Pointer, stack map[string]any, _ any) error {
-			s0, err := a0.str(fr, stack)
+		f, a0, a1 := castFn[stSS_PE](fptr), a[0].S, a[1].S
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			s1, err := a1.str(fr, stack)
+			s1, err := a1(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			p, e := f(s0, s1)
 			if err := asError(e); err != nil {
-				return err
+				return nil, err
 			}
-			if o0 != dropSlot {
-				storePtr(fr, o0, p)
-			}
-			return nil
-		}, true
+			return p, nil
+		}}, true
 
 	case "S_PE":
-		f, a0, o0 := castFn[stS_PE](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, stack map[string]any, _ any) error {
-			s0, err := a0.str(fr, stack)
+		f, a0 := castFn[stS_PE](fptr), a[0].S
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			p, e := f(s0)
 			if err := asError(e); err != nil {
-				return err
+				return nil, err
 			}
-			if o0 != dropSlot {
-				storePtr(fr, o0, p)
-			}
-			return nil
-		}, true
+			return p, nil
+		}}, true
 
 	case "I_PE":
-		f, a0, o0 := castFn[stI_PE](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, stack map[string]any, dest any) error {
-			i0, err := a0.iface(fr, stack, dest)
+		f, a0 := castFn[stI_PE](fptr), a[0].I
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			i0, err := a0(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			p, e := f(i0)
 			if err := asError(e); err != nil {
-				return err
+				return nil, err
 			}
-			if o0 != dropSlot {
-				storePtr(fr, o0, p)
-			}
-			return nil
-		}, true
+			return p, nil
+		}}, true
 
 	case "S_P":
-		f, a0, o0 := castFn[stS_P](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, stack map[string]any, _ any) error {
-			s0, err := a0.str(fr, stack)
+		f, a0 := castFn[stS_P](fptr), a[0].S
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, st, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if p := f(s0); o0 != dropSlot {
-				storePtr(fr, o0, p)
-			}
-			return nil
-		}, true
+			return f(s0), nil
+		}}, true
 
 	case "P_P":
-		f, a0, o0 := castFn[stP_P](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, _ map[string]any, _ any) error {
-			if p := f(a0.ptr(fr)); o0 != dropSlot {
-				storePtr(fr, o0, p)
+		f, a0 := castFn[stP_P](fptr), a[0].P
+		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
+			p0, err := a0(fr, st, d)
+			if err != nil {
+				return nil, err
 			}
-			return nil
-		}, true
+			return f(p0), nil
+		}}, true
 
 	case "P_S":
-		f, a0, o0 := castFn[stP_S](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, _ map[string]any, _ any) error {
-			if s := f(a0.ptr(fr)); o0 != dropSlot {
-				storeStr(fr, o0, s)
+		f, a0 := castFn[stP_S](fptr), a[0].P
+		return node{class: lStr, S: func(fr unsafe.Pointer, st map[string]any, d any) (string, error) {
+			p0, err := a0(fr, st, d)
+			if err != nil {
+				return "", err
 			}
-			return nil
-		}, true
+			return f(p0), nil
+		}}, true
 
 	case "P_I":
-		f, a0, o0 := castFn[stP_I](fptr), args[0], outs[0]
-		return func(fr unsafe.Pointer, _ map[string]any, _ any) error {
-			if i := f(a0.ptr(fr)); o0 != dropSlot {
-				storeIface(fr, o0, i)
+		f, a0 := castFn[stP_I](fptr), a[0].P
+		return node{class: lIface, I: func(fr unsafe.Pointer, st map[string]any, d any) (ifacePair, error) {
+			p0, err := a0(fr, st, d)
+			if err != nil {
+				return ifacePair{}, err
 			}
-			return nil
-		}, true
+			return f(p0), nil
+		}}, true
 
 	case "P_E":
-		f, a0 := castFn[stP_E](fptr), args[0]
-		return func(fr unsafe.Pointer, _ map[string]any, _ any) error {
-			return asError(f(a0.ptr(fr)))
-		}, true
-
-	case "PP_E":
-		f, a0, a1 := castFn[stPP_E](fptr), args[0], args[1]
-		return func(fr unsafe.Pointer, _ map[string]any, _ any) error {
-			return asError(f(a0.ptr(fr), a1.ptr(fr)))
-		}, true
-
-	case "II_E":
-		f, a0, a1 := castFn[stII_E](fptr), args[0], args[1]
-		return func(fr unsafe.Pointer, stack map[string]any, dest any) error {
-			i0, err := a0.iface(fr, stack, dest)
+		f, a0 := castFn[stP_E](fptr), a[0].P
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			p0, err := a0(fr, st, d)
 			if err != nil {
 				return err
 			}
-			i1, err := a1.iface(fr, stack, dest)
+			return asError(f(p0))
+		}}, true
+
+	case "PP_E":
+		f, a0, a1 := castFn[stPP_E](fptr), a[0].P, a[1].P
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			p0, err := a0(fr, st, d)
+			if err != nil {
+				return err
+			}
+			p1, err := a1(fr, st, d)
+			if err != nil {
+				return err
+			}
+			return asError(f(p0, p1))
+		}}, true
+
+	case "II_E":
+		f, a0, a1 := castFn[stII_E](fptr), a[0].I, a[1].I
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			i0, err := a0(fr, st, d)
+			if err != nil {
+				return err
+			}
+			i1, err := a1(fr, st, d)
 			if err != nil {
 				return err
 			}
 			return asError(f(i0, i1))
-		}, true
+		}}, true
+
+	case "SS_E":
+		f, a0, a1 := castFn[stSS_E](fptr), a[0].S, a[1].S
+		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
+			s0, err := a0(fr, st, d)
+			if err != nil {
+				return err
+			}
+			s1, err := a1(fr, st, d)
+			if err != nil {
+				return err
+			}
+			return asError(f(s0, s1))
+		}}, true
 	}
-	return nil, false
+	return node{}, false
 }
 
-// planned is one call in execution order with the slots its non-error
-// results are written to. A nested call is planned before its caller,
-// into a temporary slot.
-type planned struct {
-	call *vmCall
-	outs []int
+// jitCompiler holds the state of one program's compilation.
+type jitCompiler struct {
+	slotOf map[int]int // vmProgram slot -> frame field index
+	types  []reflect.Type
+	offs   []uintptr
+	// writes counts the assignments to each slot. A slot written more
+	// than once cannot back an interface argument, because the argument
+	// aliases the slot and a later assignment would change the value
+	// behind an interface the callee may still hold.
+	writes map[int]int
+	// splices maps an argument that reads a name to the call that
+	// produced it, where planInline decided the value can travel as a
+	// return value instead of through a slot. It is a side table rather
+	// than an edit of the call tree, because the same tree is what the
+	// reflect evaluator runs when the JIT declines: rewriting it would
+	// leave the producer both spliced in and still a statement, and the
+	// fallback would run it twice.
+	splices map[*vmArg]*vmCall
 }
 
 // jitCompileProgram builds the all-JIT form of a compiled program, or
-// returns nil when any step is outside the shape table.
-func jitCompileProgram(p *vmProgram) *jitProgram {
+// returns the reason it cannot. The error is what Runtime.Supports
+// reports, so it names the call and the shape that stopped it.
+func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 	if p.polymorphic {
-		return nil
+		return nil, fmt.Errorf("a name is reassigned at a different type")
 	}
-	types := append([]reflect.Type(nil), p.slotTypes...)
-	argSlot := map[*vmArg]int{}
-	var plan []planned
 
-	retSlot := -1
+	stmts, live, writes, splices, err := planInline(p)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &jitCompiler{slotOf: map[int]int{}, writes: writes, splices: splices}
+	for slot := 0; slot < p.nslots; slot++ {
+		if !live[slot] {
+			continue
+		}
+		t := p.slotTypes[slot]
+		if t == nil || layoutOf(t) == lBad {
+			return nil, fmt.Errorf("a name of type %s has no layout class", t)
+		}
+		c.slotOf[slot] = len(c.types)
+		c.types = append(c.types, t)
+	}
+
+	jp := &jitProgram{}
+	if len(c.types) > 0 {
+		fields := make([]reflect.StructField, len(c.types))
+		for i, t := range c.types {
+			fields[i] = reflect.StructField{Name: fmt.Sprintf("F%d", i), Type: t}
+		}
+		jp.frameType = reflect.StructOf(fields)
+		jp.frameRT = rtypePtr(jp.frameType)
+		c.offs = make([]uintptr, len(c.types))
+		for i := range c.types {
+			c.offs[i] = jp.frameType.Field(i).Offset
+		}
+	}
+
+	for _, s := range stmts {
+		stmt, err := c.stmtNode(s, jp)
+		if err != nil {
+			return nil, err
+		}
+		jp.stmts = append(jp.stmts, stmt)
+	}
+	return jp, nil
+}
+
+// plannedStmt is one statement after inlining, with the slot its result
+// is stored to.
+type plannedStmt struct {
+	call *vmCall
+	out  int // frame slot, -1 to discard
+	ret  bool
+}
+
+// planInline drops a statement whose single result is read exactly once
+// by a later statement, splicing the call into the reader's argument
+// tree. The value then travels as a closure's return value and needs no
+// slot at all.
+//
+// The splice only happens when every argument the reader evaluates
+// before it is free of side effects, which keeps the order of calls the
+// source wrote. A receiver is argument zero and always qualifies, so a
+// method chain written across statements collapses exactly as the same
+// chain written on one line does.
+func planInline(p *vmProgram) ([]plannedStmt, map[int]bool, map[int]int, map[*vmArg]*vmCall, error) {
+	stmts := make([]plannedStmt, 0, len(p.stmts))
 	for i := range p.stmts {
 		s := &p.stmts[i]
 		if s.call == nil {
 			continue // a bare "return;" leaves the program without a value
 		}
 		if s.ret && i != len(p.stmts)-1 {
-			return nil // an early return is not a straight line of steps
+			return nil, nil, nil, nil, fmt.Errorf("a return before the last statement is not a straight line")
 		}
-		outs := make([]int, s.call.nres)
-		for j := range outs {
-			outs[j] = -1
+		out := -1
+		if len(s.out) > 0 {
+			out = s.out[0]
 		}
-		for j, slot := range s.out {
-			outs[j] = slot
-		}
-		if s.ret && s.call.nres > 0 && outs[0] < 0 {
-			t := callResultType(s.call, 0)
-			if t == nil || layoutOf(t) == lBad {
-				return nil
-			}
-			types = append(types, t)
-			outs[0] = len(types) - 1
-			retSlot = outs[0]
-		}
-		if !planCall(s.call, outs, &plan, &types, argSlot) {
-			return nil
-		}
+		stmts = append(stmts, plannedStmt{call: s.call, out: out, ret: s.ret})
 	}
 
-	// Count writes per slot: an interface argument may only alias a
-	// slot's storage when nothing can overwrite it later.
-	writes := make([]int, len(types))
-	for _, pc := range plan {
-		for _, slot := range pc.outs {
-			if slot >= 0 {
-				writes[slot]++
-			}
-		}
+	reads := map[int]int{}
+	for _, s := range stmts {
+		countReads(s.call, reads)
 	}
 
-	fields := make([]reflect.StructField, len(types))
-	for i, t := range types {
-		if t == nil || layoutOf(t) == lBad {
-			return nil
-		}
-		fields[i] = reflect.StructField{Name: fmt.Sprintf("F%d", i), Type: t}
-	}
-	frameType := reflect.StructOf(fields)
-	offs := make([]uintptr, len(types))
-	for i := range types {
-		offs[i] = frameType.Field(i).Offset
-	}
-
-	jp := &jitProgram{frameType: frameType, frameRT: rtypePtr(frameType)}
-	for _, pc := range plan {
-		step, ok := buildStep(pc, types, offs, writes, argSlot)
-		if !ok {
-			return nil
-		}
-		jp.steps = append(jp.steps, step)
-	}
-	if retSlot >= 0 {
-		jp.retType, jp.retOff = types[retSlot], offs[retSlot]
-	}
-	return jp
-}
-
-// planCall lays out a call and everything nested inside it, deepest
-// first, so every step reads its arguments from slots already written.
-func planCall(c *vmCall, outs []int, plan *[]planned, types *[]reflect.Type, argSlot map[*vmArg]int) bool {
-	for _, a := range c.args {
-		if a.kind != vaCall {
+	splices := map[*vmArg]*vmCall{}
+	for i := 0; i+1 < len(stmts); i++ {
+		s := stmts[i]
+		if s.ret || s.out < 0 || s.call.nres != 1 || reads[s.out] != 1 {
 			continue
 		}
-		if a.sub.nres < 1 {
-			return false
+		// Only into the statement immediately after. Every statement
+		// runs a call, so moving a producer past one would reorder two
+		// calls the source wrote in the other order.
+		arg := findSplice(stmts[i+1].call, s.out, splices)
+		if arg == nil {
+			continue
 		}
-		t := callResultType(a.sub, 0)
-		if t == nil || layoutOf(t) == lBad {
-			return false
-		}
-		*types = append(*types, t)
-		slot := len(*types) - 1
-		argSlot[a] = slot
+		splices[arg] = s.call
+		stmts = append(stmts[:i], stmts[i+1:]...)
+		i--
+	}
 
-		sub := make([]int, a.sub.nres)
-		for i := range sub {
-			sub[i] = -1
+	live := map[int]bool{}
+	writes := map[int]int{}
+	for _, s := range stmts {
+		if s.out >= 0 {
+			live[s.out] = true
+			writes[s.out]++
 		}
-		sub[0] = slot
-		if !planCall(a.sub, sub, plan, types, argSlot) {
-			return false
+		if s.ret && s.call.nres > 0 && s.out < 0 {
+			return nil, nil, nil, nil, fmt.Errorf("a returned value needs a slot")
 		}
 	}
-	*plan = append(*plan, planned{call: c, outs: outs})
-	return true
+	return stmts, live, writes, splices, nil
+}
+
+func countReads(c *vmCall, reads map[int]int) {
+	for _, a := range c.args {
+		switch a.kind {
+		case vaSlot:
+			reads[a.slot]++
+		case vaCall:
+			countReads(a.sub, reads)
+		}
+	}
+}
+
+// findSplice returns the argument of c that reads slot and can take the
+// producer in place, or nil. It refuses when anything c evaluates
+// earlier has a side effect, which keeps the order of calls the source
+// wrote; a receiver is argument zero and always qualifies.
+func findSplice(c *vmCall, slot int, splices map[*vmArg]*vmCall) *vmArg {
+	for i, a := range c.args {
+		if a.kind == vaSlot && a.slot == slot && splices[a] == nil {
+			for _, before := range c.args[:i] {
+				if before.kind == vaCall || splices[before] != nil {
+					return nil
+				}
+			}
+			return a
+		}
+		if sub := subCall(a, splices); sub != nil {
+			if found := findSplice(sub, slot, splices); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
+}
+
+// subCall is the call an argument evaluates, whether it was written
+// nested or spliced in by planInline.
+func subCall(a *vmArg, splices map[*vmArg]*vmCall) *vmCall {
+	if a.kind == vaCall {
+		return a.sub
+	}
+	return splices[a]
+}
+
+// stmtNode compiles one statement into the closure the program runs.
+func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
+	n, err := c.exprNode(s.call)
+	if err != nil {
+		return nil, err
+	}
+	if s.out < 0 {
+		// The result is dropped, but the call still runs and its error
+		// still ends the program.
+		return dropNode(n), nil
+	}
+
+	field, ok := c.slotOf[s.out]
+	if !ok {
+		return dropNode(n), nil
+	}
+	off := c.offs[field]
+	if s.ret {
+		jp.retType, jp.retOff = c.types[field], off
+	}
+
+	switch n.class {
+	case lPtr:
+		f := n.P
+		return func(fr unsafe.Pointer, st map[string]any, d any) error {
+			v, err := f(fr, st, d)
+			if err != nil {
+				return err
+			}
+			*(*unsafe.Pointer)(unsafe.Add(fr, off)) = v
+			return nil
+		}, nil
+	case lSlice:
+		f := n.L
+		return func(fr unsafe.Pointer, st map[string]any, d any) error {
+			v, err := f(fr, st, d)
+			if err != nil {
+				return err
+			}
+			*(*sliceHdr)(unsafe.Add(fr, off)) = v
+			return nil
+		}, nil
+	case lStr:
+		f := n.S
+		return func(fr unsafe.Pointer, st map[string]any, d any) error {
+			v, err := f(fr, st, d)
+			if err != nil {
+				return err
+			}
+			*(*string)(unsafe.Add(fr, off)) = v
+			return nil
+		}, nil
+	case lIface:
+		f := n.I
+		return func(fr unsafe.Pointer, st map[string]any, d any) error {
+			v, err := f(fr, st, d)
+			if err != nil {
+				return err
+			}
+			*(*ifacePair)(unsafe.Add(fr, off)) = v
+			return nil
+		}, nil
+	}
+	return nil, fmt.Errorf("a result of class %s cannot be stored", n.class)
+}
+
+// dropNode runs a node for its effects and discards its value.
+func dropNode(n node) nodeE {
+	switch n.class {
+	case lNone:
+		return n.E
+	case lPtr:
+		f := n.P
+		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+	case lSlice:
+		f := n.L
+		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+	case lStr:
+		f := n.S
+		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+	default:
+		f := n.I
+		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+	}
+}
+
+// exprNode compiles one call and its arguments.
+func (c *jitCompiler) exprNode(call *vmCall) (node, error) {
+	ft := call.fn.Type()
+	args := make([]node, ft.NumIn())
+	key := ""
+	for i := 0; i < ft.NumIn(); i++ {
+		pt := ft.In(i)
+		cl := layoutOf(pt)
+		if cl == lBad {
+			return node{}, fmt.Errorf("%s: parameter %d of type %s has no layout class", call.name, i+1, pt)
+		}
+		key += cl.String()
+		a, err := c.argNode(call.args[i], pt, cl)
+		if err != nil {
+			return node{}, fmt.Errorf("%s: argument %d: %w", call.name, i+1, err)
+		}
+		args[i] = a
+	}
+	key += "_"
+	for j := 0; j < ft.NumOut(); j++ {
+		if j == call.errIdx {
+			key += lErr.String()
+			continue
+		}
+		cl := layoutOf(ft.Out(j))
+		if cl == lBad {
+			return node{}, fmt.Errorf("%s: result %d of type %s has no layout class", call.name, j+1, ft.Out(j))
+		}
+		key += cl.String()
+	}
+
+	n, ok := callNode(key, funcPtr(call.fn.Interface()), args)
+	if !ok {
+		return node{}, fmt.Errorf("%s: shape %q is not in the table", call.name, key)
+	}
+	return n, nil
+}
+
+// argNode compiles one argument to the class its parameter wants.
+func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error) {
+	switch a.kind {
+	case vaCall:
+		sub, err := c.exprNode(a.sub)
+		if err != nil {
+			return node{}, err
+		}
+		if sub.class == cl {
+			return sub, nil
+		}
+		if cl == lIface {
+			return c.toIface(sub, callResultType(a.sub, 0), pt)
+		}
+		return node{}, fmt.Errorf("a %s result cannot fill a %s parameter", sub.class, cl)
+
+	case vaSlot:
+		if producer := c.splices[a]; producer != nil {
+			sub, err := c.exprNode(producer)
+			if err != nil {
+				return node{}, err
+			}
+			if sub.class == cl {
+				return sub, nil
+			}
+			if cl == lIface {
+				return c.toIface(sub, callResultType(producer, 0), pt)
+			}
+			return node{}, fmt.Errorf("a %s result cannot fill a %s parameter", sub.class, cl)
+		}
+		field, ok := c.slotOf[a.slot]
+		if !ok {
+			return node{}, fmt.Errorf("a name has no slot")
+		}
+		off, st := c.offs[field], c.types[field]
+		if cl == lIface && st.Kind() != reflect.Interface {
+			tab, ok := itabFor(st, pt)
+			if !ok {
+				return node{}, fmt.Errorf("%s does not implement %s", st, pt)
+			}
+			if layoutOf(st) == lPtr {
+				// Stored directly: the data word is the pointer itself,
+				// read out of the slot, so nothing aliases the frame.
+				return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+					return ifacePair{tab: tab, data: *(*unsafe.Pointer)(unsafe.Add(fr, off))}, nil
+				}}, nil
+			}
+			// Stored indirectly: the interface points at the slot rather
+			// than a copy, which is the allocation this saves. Only
+			// legal while the slot is written once, since the frame
+			// outlives the call and the callee may keep the interface.
+			if c.writes[a.slot] != 1 {
+				return node{}, fmt.Errorf("a name assigned more than once cannot fill a %s parameter", pt)
+			}
+			return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+				return ifacePair{tab: tab, data: unsafe.Add(fr, off)}, nil
+			}}, nil
+		}
+		if layoutOf(st) != cl {
+			return node{}, fmt.Errorf("a %s name cannot fill a %s parameter", layoutOf(st), cl)
+		}
+		return slotNode(cl, off), nil
+
+	case vaConst:
+		return constNode(cl, a.val)
+
+	default:
+		return c.dynamicNode(a, pt, cl)
+	}
+}
+
+// toIface wraps a computed value as an interface. A pointer-shaped
+// value is the data word itself; anything wider is stored indirectly,
+// which is the allocation the Go compiler makes at the same place.
+func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
+	if st == nil {
+		return node{}, fmt.Errorf("a call with no result cannot become an interface")
+	}
+	tab, ok := itabFor(st, pt)
+	if !ok {
+		return node{}, fmt.Errorf("%s does not implement %s", st, pt)
+	}
+	switch sub.class {
+	case lPtr:
+		f := sub.P
+		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, s, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			return ifacePair{tab: tab, data: v}, nil
+		}}, nil
+	case lSlice:
+		f := sub.L
+		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, s, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			return ifacePair{tab: tab, data: unsafe.Pointer(&v)}, nil
+		}}, nil
+	case lStr:
+		f := sub.S
+		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, s, d)
+			if err != nil {
+				return ifacePair{}, err
+			}
+			return ifacePair{tab: tab, data: unsafe.Pointer(&v)}, nil
+		}}, nil
+	}
+	return node{}, fmt.Errorf("a %s result cannot become an interface", sub.class)
+}
+
+func slotNode(cl layout, off uintptr) node {
+	switch cl {
+	case lPtr:
+		return node{class: lPtr, P: func(fr unsafe.Pointer, _ map[string]any, _ any) (unsafe.Pointer, error) {
+			return *(*unsafe.Pointer)(unsafe.Add(fr, off)), nil
+		}}
+	case lSlice:
+		return node{class: lSlice, L: func(fr unsafe.Pointer, _ map[string]any, _ any) (sliceHdr, error) {
+			return *(*sliceHdr)(unsafe.Add(fr, off)), nil
+		}}
+	case lStr:
+		return node{class: lStr, S: func(fr unsafe.Pointer, _ map[string]any, _ any) (string, error) {
+			return *(*string)(unsafe.Add(fr, off)), nil
+		}}
+	default:
+		return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+			return *(*ifacePair)(unsafe.Add(fr, off)), nil
+		}}
+	}
+}
+
+func constNode(cl layout, v reflect.Value) (node, error) {
+	switch cl {
+	case lStr:
+		s := v.String()
+		return node{class: lStr, S: func(unsafe.Pointer, map[string]any, any) (string, error) { return s, nil }}, nil
+	case lPtr:
+		if !v.IsZero() {
+			return node{}, fmt.Errorf("only a zero pointer can be a constant")
+		}
+		return node{class: lPtr, P: func(unsafe.Pointer, map[string]any, any) (unsafe.Pointer, error) { return nil, nil }}, nil
+	case lIface:
+		if !v.IsZero() {
+			return node{}, fmt.Errorf("only a nil interface can be a constant")
+		}
+		return node{class: lIface, I: func(unsafe.Pointer, map[string]any, any) (ifacePair, error) { return ifacePair{}, nil }}, nil
+	case lSlice:
+		if !v.IsZero() {
+			return node{}, fmt.Errorf("only a nil slice can be a constant")
+		}
+		return node{class: lSlice, L: func(unsafe.Pointer, map[string]any, any) (sliceHdr, error) { return sliceHdr{}, nil }}, nil
+	}
+	return node{}, fmt.Errorf("a constant of class %s is not supported", cl)
+}
+
+// dynamicNode compiles a value whose type is only known when it is
+// read: from the caller's stack, or the pointer Scan was handed.
+func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, error) {
+	isDest := a.kind == vaDest
+	name := a.name
+	if isDest {
+		name = "dest"
+	}
+	switch cl {
+	case lStr:
+		if isDest {
+			return node{}, fmt.Errorf("dest cannot fill a string parameter")
+		}
+		return node{class: lStr, S: func(_ unsafe.Pointer, st map[string]any, _ any) (string, error) {
+			v, ok := st[name]
+			if !ok || v == nil {
+				return "", nil
+			}
+			s, ok := v.(string)
+			if !ok {
+				return "", fmt.Errorf("exec: variable %q: cannot use %T as string", name, v)
+			}
+			return s, nil
+		}}, nil
+	case lIface:
+		conv, ok := ifaceConvs[pt]
+		if !ok {
+			return node{}, fmt.Errorf("%s is not in ifaceConvs", pt)
+		}
+		if isDest {
+			return node{class: lIface, I: func(_ unsafe.Pointer, _ map[string]any, d any) (ifacePair, error) {
+				if d == nil {
+					return ifacePair{}, fmt.Errorf("exec: dest is only set by Scan")
+				}
+				pair, ok := conv(d)
+				if !ok {
+					return ifacePair{}, fmt.Errorf("exec: variable %q: cannot use %T as %s", name, d, pt)
+				}
+				return pair, nil
+			}}, nil
+		}
+		return node{class: lIface, I: func(_ unsafe.Pointer, st map[string]any, _ any) (ifacePair, error) {
+			v, ok := st[name]
+			if !ok || v == nil {
+				return ifacePair{}, nil
+			}
+			pair, ok := conv(v)
+			if !ok {
+				return ifacePair{}, fmt.Errorf("exec: variable %q: cannot use %T as %s", name, v, pt)
+			}
+			return pair, nil
+		}}, nil
+	}
+	return node{}, fmt.Errorf("a stack value cannot fill a %s parameter", cl)
 }
 
 // callResultType is the static type of a call's i'th non-error result.
@@ -598,152 +928,4 @@ func callResultType(c *vmCall, i int) reflect.Type {
 		n++
 	}
 	return nil
-}
-
-// buildStep resolves one planned call into arguments, a shape key and a
-// closure.
-func buildStep(pc planned, types []reflect.Type, offs []uintptr, writes []int, argSlot map[*vmArg]int) (jitStep, bool) {
-	c := pc.call
-	ft := c.fn.Type()
-
-	params := make([]layout, ft.NumIn())
-	args := make([]*jitArg, ft.NumIn())
-	for i := 0; i < ft.NumIn(); i++ {
-		pt := ft.In(i)
-		cl := layoutOf(pt)
-		if cl == lBad {
-			return nil, false
-		}
-		params[i] = cl
-		a, ok := buildArg(c.args[i], pt, cl, types, offs, writes, argSlot)
-		if !ok {
-			return nil, false
-		}
-		args[i] = a
-	}
-
-	results := make([]layout, ft.NumOut())
-	outs := make([]uintptr, 0, c.nres)
-	n := 0
-	for j := 0; j < ft.NumOut(); j++ {
-		if j == c.errIdx {
-			results[j] = lErr
-			continue
-		}
-		cl := layoutOf(ft.Out(j))
-		if cl == lBad {
-			return nil, false
-		}
-		results[j] = cl
-		off := dropSlot
-		if n < len(pc.outs) && pc.outs[n] >= 0 {
-			off = offs[pc.outs[n]]
-		}
-		outs = append(outs, off)
-		n++
-	}
-
-	key := ""
-	for _, l := range params {
-		key += l.String()
-	}
-	key += "_"
-	for _, l := range results {
-		key += l.String()
-	}
-	return stepFor(key, funcPtrOf(c.fn), args, outs)
-}
-
-// funcPtrOf takes the funcval pointer out of a reflect.Value holding a
-// func. Value.UnsafePointer returns the code pointer for a func value,
-// which is what a funcval points at for a top-level func, but a method
-// value or closure needs the funcval itself; boxing through an any and
-// reading the eface data word gives that in every case.
-func funcPtrOf(v reflect.Value) unsafe.Pointer {
-	return funcPtr(v.Interface())
-}
-
-// buildArg resolves one argument of a planned call.
-func buildArg(a *vmArg, pt reflect.Type, cl layout, types []reflect.Type, offs []uintptr, writes []int, argSlot map[*vmArg]int) (*jitArg, bool) {
-	out := &jitArg{typ: pt}
-
-	slot := -1
-	switch a.kind {
-	case vaSlot:
-		slot = a.slot
-	case vaCall:
-		s, ok := argSlot[a]
-		if !ok {
-			return nil, false
-		}
-		slot = s
-	}
-
-	if slot >= 0 {
-		out.kind, out.off = jaSlot, offs[slot]
-		st := types[slot]
-		if cl != lIface {
-			// The slot must already hold exactly the parameter's shape.
-			if layoutOf(st) != cl {
-				return nil, false
-			}
-			return out, true
-		}
-		if st.Kind() == reflect.Interface {
-			if st != pt {
-				return nil, false
-			}
-			return out, true
-		}
-		tab, ok := itabFor(st, pt)
-		if !ok {
-			return nil, false
-		}
-		out.tab = tab
-		out.direct = layoutOf(st) == lPtr
-		if !out.direct && writes[slot] != 1 {
-			// Aliasing the slot would let a later assignment change the
-			// value behind an interface the callee may still hold.
-			return nil, false
-		}
-		return out, true
-	}
-
-	switch a.kind {
-	case vaConst:
-		out.kind = jaConst
-		switch cl {
-		case lStr:
-			out.cstr = a.val.String()
-		case lPtr:
-			if !a.val.IsZero() {
-				return nil, false
-			}
-		case lIface, lSlice:
-			if !a.val.IsZero() {
-				return nil, false
-			}
-		}
-		return out, true
-
-	case vaStack, vaDest:
-		if a.kind == vaDest {
-			out.kind = jaDest
-		} else {
-			out.kind, out.name = jaStack, a.name
-		}
-		switch cl {
-		case lStr:
-			return out, true
-		case lIface:
-			conv, ok := ifaceConvs[pt]
-			if !ok {
-				return nil, false
-			}
-			out.conv = conv
-			return out, true
-		}
-		return nil, false
-	}
-	return nil, false
 }

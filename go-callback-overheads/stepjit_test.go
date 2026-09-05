@@ -26,9 +26,9 @@ func compilePair(t *testing.T, rt *Runtime, src string) (jit, slow CompiledFunc)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
-	jp := jitCompileProgram(p)
-	if jp == nil {
-		t.Fatalf("program did not JIT: %s", src)
+	jp, err := jitCompileProgram(p)
+	if err != nil {
+		t.Fatalf("program did not JIT: %s: %v", src, err)
 	}
 	return jp.run, p.run
 }
@@ -222,7 +222,7 @@ func TestStepJITRefusesReassignedAlias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if jitCompileProgram(p) != nil {
+	if _, err := jitCompileProgram(p); err == nil {
 		t.Fatal("a reassigned slot must not be aliased into an interface")
 	}
 }
@@ -246,7 +246,7 @@ func TestStepJITFallsBackWholeProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if jitCompileProgram(p) != nil {
+	if _, err := jitCompileProgram(p); err == nil {
 		t.Fatal("an int result should keep the program on the reflect tier")
 	}
 
@@ -264,5 +264,60 @@ func TestStepJITFallsBackWholeProgram(t *testing.T) {
 	}
 	if buf.Len() == 0 {
 		t.Error("fallback program wrote nothing")
+	}
+}
+
+// TestPlanInlineLeavesTheTreeAlone guards the interaction between the
+// two tiers. planInline decides that a value can travel as a return
+// value instead of through a slot, which drops the statement that
+// produced it. If it recorded that by editing the call tree, a program
+// that then failed to JIT would reach the reflect evaluator with the
+// producer both spliced into its reader and still present as its own
+// statement, and would run it twice.
+func TestPlanInlineLeavesTheTreeAlone(t *testing.T) {
+	rt := pairRuntime(t)
+	calls := 0
+	if err := rt.Bind("once", func(s string) (*url.URL, error) {
+		calls++
+		return &url.URL{Path: s}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// An int result has no layout class, so the program compiles the
+	// inline plan and then declines to JIT.
+	if err := rt.Bind("count", func() int { return 7 }); err != nil {
+		t.Fatal(err)
+	}
+
+	const src = `
+		u := once("/a");
+		s := u.String();
+		n := count();
+		json.NewEncoder(dest).Encode(s);
+	`
+	prog, err := (&Parser{}).Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := rt.compiler.compileProgram(prog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jitCompileProgram(p); err == nil {
+		t.Fatal("this program is meant to fall back to reflect")
+	}
+	fn, err := rt.Compile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dest bytes.Buffer
+	if err := fn.Scan(&dest, nil); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("once called %d times, want 1", calls)
+	}
+	if got, want := dest.String(), "\"/a\"\n"; got != want {
+		t.Errorf("dest = %q, want %q", got, want)
 	}
 }
