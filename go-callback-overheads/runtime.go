@@ -3,6 +3,7 @@ package callbacks
 import (
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"sync"
 )
@@ -69,6 +70,62 @@ func (r *Runtime) BindScope(prefix string, fns map[string]any) error {
 	return nil
 }
 
+// PanicError is what a panic raised inside a bound function becomes. A
+// binding is host code and a panic crossing back into a compiled
+// program would unwind through the JIT's raw frame stores, so the
+// boundary turns it into an ordinary error at the point Compile hands
+// the program back.
+type PanicError struct {
+	Value any
+	Stack []byte
+}
+
+func (e *PanicError) Error() string {
+	return fmt.Sprintf("exec: binding panicked: %v", e.Value)
+}
+
+// guard installs the panic boundary. It covers both tiers, because it
+// wraps what Compile returns rather than either implementation.
+func guard(fn CompiledFunc) CompiledFunc {
+	return func(stack map[string]any, dest any) (res any, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				res, err = nil, &PanicError{Value: r, Stack: debug.Stack()}
+			}
+		}()
+		return fn(stack, dest)
+	}
+}
+
+// Supports reports whether src compiles to the direct-call tier, and
+// why it does not when it does not. Call it in a benchmark, or in a
+// test that means to measure the JIT, so an accidental fall back to the
+// reflect evaluator is a failure rather than a slow number.
+func (r *Runtime) Supports(src string) error {
+	prog, err := (&Parser{}).Parse(src)
+	if err != nil {
+		return err
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if call, ok := prog.flatCall(); ok {
+		s, err := r.compiler.compileStatement(call)
+		if err != nil {
+			return err
+		}
+		if s.fast == nil {
+			return fmt.Errorf("%s: signature is outside the shape table", call.path[0])
+		}
+		return nil
+	}
+	p, err := r.compiler.compileProgram(prog)
+	if err != nil {
+		return err
+	}
+	_, err = jitCompileProgram(p)
+	return err
+}
+
 // Compile parses and compiles a program into its constructed func.
 // Results are cached per program string: the second Compile of the
 // same source is a map lookup.
@@ -84,6 +141,7 @@ func (r *Runtime) Compile(stmt string) (CompiledFunc, error) {
 	if err != nil {
 		return nil, err
 	}
+	fn = guard(fn)
 	r.mu.Lock()
 	r.cache[stmt] = fn
 	r.mu.Unlock()

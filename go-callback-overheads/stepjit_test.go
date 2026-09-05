@@ -321,3 +321,104 @@ func TestPlanInlineLeavesTheTreeAlone(t *testing.T) {
 		t.Errorf("dest = %q, want %q", got, want)
 	}
 }
+// TestSupportsReportsTheReason checks the public gate: a program that
+// JITs reports nil, and one that does not names what stopped it.
+func TestSupportsReportsTheReason(t *testing.T) {
+	rt := pairRuntime(t)
+	if err := rt.Bind("count", func() int { return 7 }); err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Supports(`json.NewEncoder(dest).Encode(url.Parse("/x"));`); err != nil {
+		t.Errorf("supported program reported %v", err)
+	}
+	err := rt.Supports(`n := count(); json.NewEncoder(dest).Encode("x");`)
+	if err == nil {
+		t.Fatal("an int result should be reported as unsupported")
+	}
+	t.Log(err)
+	if _, err := rt.Supports(`this is not a program`), error(nil); err != nil {
+		_ = err
+	}
+	if rt.Supports(`nope(`) == nil {
+		t.Error("a parse error should be reported")
+	}
+}
+
+// TestPanicBoundary checks that a panic raised inside a binding comes
+// back as an error rather than unwinding through the JIT's raw stores,
+// on both tiers.
+func TestPanicBoundary(t *testing.T) {
+	for _, tc := range []struct{ name, src string }{
+		{"jit", `u := boom("x"); json.NewEncoder(dest).Encode(u);`},
+		{"reflect", `n := count(); u := boom("x"); json.NewEncoder(dest).Encode(u);`},
+	} {
+		rt := pairRuntime(t)
+		if err := rt.Bind("boom", func(s string) (*url.URL, error) {
+			panic("binding exploded: " + s)
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := rt.Bind("count", func() int { return 7 }); err != nil {
+			t.Fatal(err)
+		}
+		supported := rt.Supports(tc.src) == nil
+		if supported != (tc.name == "jit") {
+			t.Fatalf("%s: Supports = %v, want %v", tc.name, supported, tc.name == "jit")
+		}
+
+		fn, err := rt.Compile(tc.src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dest bytes.Buffer
+		err = fn.Scan(&dest, nil)
+		if err == nil {
+			t.Fatalf("%s: expected the panic to come back as an error", tc.name)
+		}
+		var pe *PanicError
+		if !errors.As(err, &pe) {
+			t.Fatalf("%s: err = %T (%v), want *PanicError", tc.name, err, err)
+		}
+		if pe.Value != "binding exploded: x" {
+			t.Errorf("%s: value = %v", tc.name, pe.Value)
+		}
+		if len(pe.Stack) == 0 {
+			t.Errorf("%s: no stack captured", tc.name)
+		}
+	}
+}
+
+// TestAllocationBudget pins the allocation count of the compiled
+// program against the native code it stands for, so a regression fails
+// the suite rather than only showing up in a benchmark.
+func TestAllocationBudget(t *testing.T) {
+	rt := pairRuntime(t)
+	if err := rt.Supports(vmProgramSrc); err != nil {
+		t.Fatalf("the benchmark program must JIT: %v", err)
+	}
+	fn, err := rt.Compile(vmProgramSrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	got := testing.AllocsPerRun(200, func() {
+		buf.Reset()
+		if err := fn.Scan(&buf, nil); err != nil {
+			panic(err)
+		}
+	})
+	want := testing.AllocsPerRun(200, func() {
+		buf.Reset()
+		req, _ := http.NewRequest("GET", "/", nil)
+		_ = json.NewEncoder(&buf).Encode(req.Cookies())
+	})
+	// The budget is native plus one. The extra is materialising the
+	// cookie slice for the interface Encode takes: the Go compiler can
+	// prove that value does not outlive the call and keep it on the
+	// stack, while the JIT hands it to a func it reinterpreted and has
+	// to assume it escapes. Everything else matches.
+	t.Logf("program %.0f allocations/run, native %.0f", got, want)
+	if got > want+1 {
+		t.Errorf("program allocates %.0f/run, native %.0f, budget %.0f", got, want, want+1)
+	}
+}
