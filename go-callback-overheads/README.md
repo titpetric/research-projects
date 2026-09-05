@@ -7,9 +7,11 @@ expression string. The question the repository answers is what that
 costs against calling the function directly, and how much of the cost
 can be removed.
 
-The answer is in the results table: a shape-table JIT over the bound
-function reruns a cached statement with no allocations on top of the
-native `http.NewRequest` call, against the reflect path it replaces.
+A shape-table JIT over the bound function reruns a cached statement with
+no allocations on top of the native `http.NewRequest` call, against the
+two extra allocations of the reflect path it replaces. The measured
+figures are under [what the overhead is made
+of](#what-the-overhead-is-made-of).
 
 ## Design requirements
 
@@ -35,8 +37,8 @@ native `http.NewRequest` call, against the reflect path it replaces.
   takes `string, string, io.Reader`, only those types can be passed:
   a numeric literal in a string slot is a compile error, as is an excess
   argument or an unknown binding.
-- Compilation internalizes the binding into a constructed
-  `func(map[string]any) (any, error)`, cached per expression string, so
+- Compilation internalizes the binding into a constructed `CompiledFunc`,
+  a `func(map[string]any) (any, error)`, cached per expression string, so
   the same statement rerun with a different stack skips parsing and
   compilation entirely.
 
@@ -109,29 +111,55 @@ runtime := NewRuntime()
 runtime.Bind("NewRequest", http.NewRequest)
 
 // Parse + compile + execute, cached per statement string.
-req, err := Eval[*http.Request](runtime, `return NewRequest("GET", "https://example.com");`, stack)
+req, err := runtime.Eval[*http.Request](`return NewRequest("GET", "https://example.com");`, stack)
 
 // Split form: compile once, execute many times with different stacks.
 fn, err := runtime.Compile(`return NewRequest("GET", url);`)
-req, err := Exec[*http.Request](fn, stack)
+req, err := fn.Exec[*http.Request](stack)
 
 // Scan copies the result into caller-allocated memory.
 var req http.Request
-err := Scan[*http.Request](&req, fn, stack)
+err := fn.Scan(&req, stack)
 ```
 
-`Compile` returns the constructed `func(map[string]any) (any, error)`.
-`Eval`, `Exec` and `Scan` are package-level generic functions because Go
-methods cannot take type parameters.
+`Compile` returns a `CompiledFunc`, a defined
+`func(map[string]any) (any, error)`. `Eval`, `Exec` and `Scan` are
+generic methods: `Eval` on `*Runtime`, `Exec` and `Scan` on
+`CompiledFunc`. Generic methods require the go1.27 language version,
+which is what the `go` line in go.mod selects.
+
+`T` appears only in the result of `Eval` and `Exec`, so it has nothing
+to be inferred from and is always instantiated explicitly. `Scan` infers
+`T` from `dest *T`; the result is dereferenced when it is a `*T`.
+
+The runtime is not parameterized on `T`. Bindings with different return
+types share one runtime, and the type is chosen per call site.
+
+## What the overhead is made of
+
+Measured against `http.NewRequest`, three findings:
+
+1. Parsing and compilation are the bulk of it. Executing the statement
+   without the expression cache costs 1.316us over the native call,
+   against 39.46n for the same statement once compiled and cached. The
+   text-to-callable step is 33 times the entire per-call cost of the
+   compiled form, and it is the part a cache removes outright.
+2. Reflection is smaller than parsing and is not free. The reflect tier
+   costs 796.1n over native and allocates 5 times per call where native
+   allocates 3. The two extra allocations are the argument frame and the
+   results slice `reflect.Value.Call` builds on every call.
+3. What is left can be removed. Reinterpreting the bound func as a shape
+   type and calling it directly brings allocations back to native's 3
+   and the cost to 39.46n on a 633.4n call, around 7%. That 39.46n buys
+   the map lookup for the variable, its type assertion, and boxing the
+   result into an `any`.
 
 ## Benchmarks
 
-Method, from atkins.yml: every run is pinned to one core at top
-priority (`taskset -c 3 nice -n -20`), a 3s warmup run is discarded
-first, and inlining is disabled (`-gcflags=all=-l`) so the native
-baseline is not inlined into the loop body. The sweep runs with
-`-benchtime 10s -count 3 -benchmem`; the profile job repeats
-BenchmarkCostAmortizedCache with `-cpuprofile` and `-memprofile`.
+Every run is pinned to one core at top priority (`taskset -c 3 nice -n
+-20`), a 3s warmup run is discarded first, and inlining is disabled
+(`-gcflags=all=-l`) so the native baseline is not inlined into the loop
+body. The sweep runs with `-benchtime 10s -count 3 -benchmem`.
 
 There are exactly four benchmarks. All of them run the statement
 `return NewRequest("GET", url);` with the compiled form reused verbatim
@@ -161,18 +189,39 @@ the amortized overhead of going through the VM on either tier. The
 baseline includes neither the stack map lookup nor the type assertion,
 so both count toward the VM's cost.
 
-Artifacts: `bench.txt` (raw sweep), `cpu.out`/`mem.out` with the
-`callbacks.test` binary for `go tool pprof`. Reproduce with
-`atkins save` and `atkins profile`.
-
 ### Results
 
-`benchstat bench.txt`, medians of the sweep, pinned, Intel N150,
-go1.27.0:
+The raw sweep is [`bench.txt`](bench.txt), three counts of each
+benchmark on an Intel N150 under go1.27.0. The figures quoted above are
+its medians.
 
-| Benchmark          |    sec/op |     B/op | allocs/op | cost-sec/op | native-sec/op |
-|--------------------|----------:|---------:|----------:|------------:|--------------:|
-| Native             |    600.7n |    512.0 |     3.000 |           - |             - |
-| CostWithoutCaching |    1.785µ |  1.062Ki |     11.00 |      1.187µ |        587.6n |
-| CostNaive          |    1.303µ |    576.0 |     5.000 |      692.6n |        596.6n |
-| CostAmortizedCache |    633.2n |    512.0 |     3.000 |      25.86n |        612.7n |
+To reproduce it:
+
+```sh
+go test -run XXX -bench . -benchtime 3s -gcflags=all=-l . > /dev/null
+go test -run XXX -bench . -benchmem -benchtime 10s -count 3 \
+	-gcflags=all=-l . | tee bench.txt
+benchstat bench.txt
+```
+
+The first line is the discarded warmup. Prefix both `go test` lines
+with `taskset -c 3 nice -n -20` to pin them, which needs root for the
+nice level; unpinned on a shared machine the same native call read 509n
+to 913n between sweeps.
+
+Read the spread before the medians. B/op and allocs/op are identical
+across all three counts of every benchmark. sec/op is not: the
+CostAmortizedCache cost column reads 50.04n, 26.96n and 39.46n against
+native baselines of 706.6n, 663.9n and 655.1n. That cost is a
+difference of two numbers around 650n, so a 7% move in the baseline
+moves it by half its own value. The ordering of the tiers holds at this
+resolution. The JIT tier's cost-ns/op is bounded to tens of
+nanoseconds, not resolved to a figure.
+
+For a profile of the cached path:
+
+```sh
+go test -run XXX -bench 'BenchmarkCostAmortizedCache$' -benchmem \
+	-benchtime 10s -gcflags=all=-l -cpuprofile cpu.out -memprofile mem.out .
+go tool pprof callbacks.test cpu.out
+```
