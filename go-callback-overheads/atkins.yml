@@ -56,6 +56,17 @@ jobs:
             CGO_ENABLED: "1"
         run: go test -count 1 -race ./...
 
+  test:discovery:
+    aliases: [discovery]
+    desc: Print the types discovered from a set of standard library bindings
+    # The test prints its tables and the slog output only under -v, so
+    # the verbose flag is the point of this job rather than a detail.
+    # passthru prints it under the tree; run with --final for the
+    # untruncated form, since the output is what the job is for.
+    passthru: true
+    steps:
+      - run: go test -count 1 -run '^TestDiscovery$' -v .
+
   bench:
     desc: Run every benchmark with inlining disabled
     # 3 benchmarks at -benchtime 10s and -count 3 is around 90s of

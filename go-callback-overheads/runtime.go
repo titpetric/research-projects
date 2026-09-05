@@ -2,6 +2,7 @@ package callbacks
 
 import (
 	"fmt"
+	"log/slog"
 	"reflect"
 	"runtime/debug"
 	"sort"
@@ -28,6 +29,23 @@ type Runtime struct {
 	// filled by walking every binding, so most types never need
 	// registering by hand.
 	types map[string]reflect.Type
+	// log records what discovery found. Nil until SetLogger, and
+	// checked rather than defaulted so an unlogged runtime pays
+	// nothing.
+	log *slog.Logger
+	// origin names the binding the current discovery walk started from,
+	// so the log says where a type came from.
+	origin string
+}
+
+// SetLogger attaches a logger. Discovery reports every type it
+// registers through it, at debug level, which is how a caller finds out
+// what a var statement is allowed to name and where each name came
+// from.
+func (r *Runtime) SetLogger(l *slog.Logger) {
+	r.mu.Lock()
+	r.log = l
+	r.mu.Unlock()
 }
 
 // NewRuntime returns an empty Runtime.
@@ -49,9 +67,14 @@ func (r *Runtime) Bind(name string, fn any) error {
 	}
 	r.mu.Lock()
 	r.compiler.bindings[name] = binding{rv: v, raw: fn}
+	if r.log != nil {
+		r.log.Debug("bind", "name", name, "signature", v.Type().String())
+	}
 	// Everything the signature mentions becomes nameable in a var
 	// statement, along with what its methods reach.
+	r.origin = name
 	r.discover(v.Type(), 1)
+	r.origin = ""
 	r.mu.Unlock()
 	return nil
 }

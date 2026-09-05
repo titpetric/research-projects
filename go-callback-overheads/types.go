@@ -57,6 +57,14 @@ func (r *Runtime) discover(t reflect.Type, depth int) {
 		return // also what stops a recursive type looping
 	}
 	r.types[name] = t
+	if r.log != nil {
+		r.log.Debug("type discovered",
+			"name", name,
+			"kind", t.Kind().String(),
+			"via", r.origin,
+			"depth", depth,
+			"methods", t.NumMethod())
+	}
 
 	switch t.Kind() {
 	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
@@ -101,7 +109,12 @@ func (r *Runtime) BindType(name string, v any) error {
 	}
 	r.mu.Lock()
 	r.types[name] = t
+	if r.log != nil {
+		r.log.Debug("type bound", "name", name, "kind", t.Kind().String())
+	}
+	r.origin = name
 	r.discover(t, 1)
+	r.origin = ""
 	r.mu.Unlock()
 	return nil
 }
