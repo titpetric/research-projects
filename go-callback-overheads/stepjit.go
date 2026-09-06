@@ -340,22 +340,23 @@ func asError(e ifacePair) error {
 // then the result classes, with E for a trailing error. Adding a shape
 // is one type and one case in callNode.
 type (
-	stP_L    = func(unsafe.Pointer) sliceHdr
-	stI_P    = func(ifacePair) unsafe.Pointer
-	stPI_E   = func(unsafe.Pointer, ifacePair) ifacePair
-	stSSI_PE = func(string, string, ifacePair) (unsafe.Pointer, ifacePair)
-	stSS_PE  = func(string, string) (unsafe.Pointer, ifacePair)
-	stS_PE   = func(string) (unsafe.Pointer, ifacePair)
-	stI_PE   = func(ifacePair) (unsafe.Pointer, ifacePair)
-	stS_P    = func(string) unsafe.Pointer
-	stP_P    = func(unsafe.Pointer) unsafe.Pointer
-	stP_S    = func(unsafe.Pointer) string
-	stP_I    = func(unsafe.Pointer) ifacePair
-	stP_E    = func(unsafe.Pointer) ifacePair
-	stPP_E   = func(unsafe.Pointer, unsafe.Pointer) ifacePair
-	stII_E   = func(ifacePair, ifacePair) ifacePair
-	stSS_E   = func(string, string) ifacePair
-	stPP_PE  = func(unsafe.Pointer, unsafe.Pointer) (unsafe.Pointer, ifacePair)
+	stP_L     = func(unsafe.Pointer) sliceHdr
+	stI_P     = func(ifacePair) unsafe.Pointer
+	stPI_E    = func(unsafe.Pointer, ifacePair) ifacePair
+	stSSI_PE  = func(string, string, ifacePair) (unsafe.Pointer, ifacePair)
+	stISSI_PE = func(ifacePair, string, string, ifacePair) (unsafe.Pointer, ifacePair)
+	stSS_PE   = func(string, string) (unsafe.Pointer, ifacePair)
+	stS_PE    = func(string) (unsafe.Pointer, ifacePair)
+	stI_PE    = func(ifacePair) (unsafe.Pointer, ifacePair)
+	stS_P     = func(string) unsafe.Pointer
+	stP_P     = func(unsafe.Pointer) unsafe.Pointer
+	stP_S     = func(unsafe.Pointer) string
+	stP_I     = func(unsafe.Pointer) ifacePair
+	stP_E     = func(unsafe.Pointer) ifacePair
+	stPP_E    = func(unsafe.Pointer, unsafe.Pointer) ifacePair
+	stII_E    = func(ifacePair, ifacePair) ifacePair
+	stSS_E    = func(string, string) ifacePair
+	stPP_PE   = func(unsafe.Pointer, unsafe.Pointer) (unsafe.Pointer, ifacePair)
 )
 
 // nPE and the helpers beside it are the scalar call families. They are
@@ -710,6 +711,32 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 				return err
 			}
 			return asError(f(p0, i1))
+		}}, true
+
+	case "ISSI_PE":
+		f, a0, a1, a2, a3 := castFn[stISSI_PE](fptr), a[0].I, a[1].S, a[2].S, a[3].I
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			i0, err := a0(fr, ctx, st, d)
+			if err != nil {
+				return nil, err
+			}
+			s1, err := a1(fr, ctx, st, d)
+			if err != nil {
+				return nil, err
+			}
+			s2, err := a2(fr, ctx, st, d)
+			if err != nil {
+				return nil, err
+			}
+			i3, err := a3(fr, ctx, st, d)
+			if err != nil {
+				return nil, err
+			}
+			p, e := f(i0, s1, s2, i3)
+			if err := asError(e); err != nil {
+				return nil, err
+			}
+			return p, nil
 		}}, true
 
 	case "SSI_PE":

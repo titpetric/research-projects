@@ -86,7 +86,9 @@ func TestFixtures(t *testing.T) {
 			} else {
 				t.Log("tier: JIT")
 			}
-			ctx := context.WithValue(context.Background(), fixtureCtxKey{}, "fixture")
+			// The subtest's own context, not Background: cancellation
+			// and deadlines flow into the bindings.
+			ctx := context.WithValue(t.Context(), fixtureCtxKey{}, "fixture")
 			if _, err := fn.ExecContext[any](ctx, map[string]any{"tb": t}); err != nil {
 				t.Fatalf("run: %v", err)
 			}
