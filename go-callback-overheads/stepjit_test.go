@@ -605,3 +605,72 @@ func TestVariadicSliceABI(t *testing.T) {
 		t.Errorf("...any = %q, want %q", got, want)
 	}
 }
+
+// TestValueStructInFrame pins the struct-by-value slot support: the
+// frame holds the struct itself, its zero value is the zeroed frame,
+// a field read is an offset from the frame pointer and a field write
+// stores through the same offset. Both tiers must agree.
+func TestValueStructInFrame(t *testing.T) {
+	rt := pairRuntime(t)
+	const src = `
+		var u url.URL;
+		u.Path = "/in-frame";
+		u.Scheme = "https";
+		json.NewEncoder(dest).Encode(u.Path);
+	`
+	if err := rt.Supports(src); err != nil {
+		t.Fatalf("a value struct var should now JIT: %v", err)
+	}
+	jit, slow := compilePair(t, rt, src)
+	var a, b bytes.Buffer
+	if _, err := jit(context.Background(), nil, &a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := slow(context.Background(), nil, &b); err != nil {
+		t.Fatal(err)
+	}
+	if a.String() != b.String() || a.String() != "\"/in-frame\"\n" {
+		t.Errorf("dest = %q (jit) vs %q (reflect)", a.String(), b.String())
+	}
+}
+
+// TestValueStructIntoInterface pins the aliasing rule for a struct
+// slot handed to an interface parameter: written once it aliases the
+// frame, and a later field write would be visible behind a retained
+// interface, so a field write counts as a write and the alias is
+// refused in favour of the bridge.
+func TestValueStructIntoInterface(t *testing.T) {
+	rt := pairRuntime(t)
+	var kept any
+	if err := rt.Bind("keep", func(v any) (*url.URL, error) {
+		kept = v
+		return &url.URL{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	const src = `
+		var u url.URL;
+		u.Path = "/before";
+		keep(u);
+		u.Path = "/after";
+		json.NewEncoder(dest).Encode(u.Path);
+	`
+	fn, err := rt.Compile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dest bytes.Buffer
+	if err := fn.Scan(&dest, nil); err != nil {
+		t.Fatal(err)
+	}
+	u, ok := kept.(url.URL)
+	if !ok {
+		t.Fatalf("callee kept %T, want url.URL", kept)
+	}
+	if u.Path != "/before" {
+		t.Errorf("callee kept Path=%q, want /before: the later write leaked through", u.Path)
+	}
+	if got, want := dest.String(), "\"/after\"\n"; got != want {
+		t.Errorf("dest = %q, want %q", got, want)
+	}
+}

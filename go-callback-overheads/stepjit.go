@@ -730,6 +730,25 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 			return f(i0), nil
 		}}, true
 
+	case "IbS_":
+		f, a0, a1, a2 := castFn[func(ifacePair, bool, string)](fptr), a[0].I, a[1].N, a[2].S
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			i0, err := a0(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			n1, err := a1(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			s2, err := a2(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			f(i0, n1 != 0, s2)
+			return nil
+		}}, true
+
 	case "IIIS_":
 		f, a0, a1, a2, a3 := castFn[func(ifacePair, ifacePair, ifacePair, string)](fptr), a[0].I, a[1].I, a[2].I, a[3].S
 		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
@@ -1057,9 +1076,14 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 			continue
 		}
 		t := p.slotTypes[slot]
-		if t == nil || layoutOf(t) == lBad {
-			return nil, fmt.Errorf("a name of type %s has no layout class", t)
+		if t == nil {
+			return nil, fmt.Errorf("a name has no type")
 		}
+		// A type with no layout class, a struct held by value, still
+		// gets a frame field: the frame is typed storage and holds
+		// anything. Only the uses that must carry the value between
+		// calls need a class, and those fail per use, where the call
+		// bridges. A field read is an offset, not a transport.
 		c.slotOf[slot] = len(c.types)
 		c.types = append(c.types, t)
 	}
@@ -1421,13 +1445,20 @@ func (c *jitCompiler) fieldSetNode(fs *vmFieldSet) (nodeE, error) {
 		return nil, fmt.Errorf("a field target has no slot")
 	}
 	bt := c.types[field]
-	if bt.Kind() != reflect.Pointer || bt.Elem().Kind() != reflect.Struct {
+	if len(fs.steps) != 1 || len(fs.steps[0].index) != 1 {
+		return nil, fmt.Errorf("only a single field is in the table")
+	}
+	var sf reflect.StructField
+	var direct bool // the struct lives in the frame itself
+	switch {
+	case fs.steps[0].deref && bt.Kind() == reflect.Pointer && bt.Elem().Kind() == reflect.Struct:
+		sf = bt.Elem().Field(fs.steps[0].index[0])
+	case !fs.steps[0].deref && bt.Kind() == reflect.Struct:
+		sf = bt.Field(fs.steps[0].index[0])
+		direct = true
+	default:
 		return nil, fmt.Errorf("a field of a %s is not in the table", bt)
 	}
-	if len(fs.steps) != 1 || !fs.steps[0].deref || len(fs.steps[0].index) != 1 {
-		return nil, fmt.Errorf("only a single field of a pointer to a struct is in the table")
-	}
-	sf := bt.Elem().Field(fs.steps[0].index[0])
 	cl := layoutOf(sf.Type)
 	if cl == lBad {
 		return nil, fmt.Errorf("field %s of type %s has no layout class", sf.Name, sf.Type)
@@ -1455,12 +1486,20 @@ func (c *jitCompiler) fieldSetNode(fs *vmFieldSet) (nodeE, error) {
 	}
 
 	baseOff, fieldOff, name, srcType := c.offs[field], sf.Offset, fs.field, bt
-	target := func(fr unsafe.Pointer) (unsafe.Pointer, error) {
-		base := *(*unsafe.Pointer)(unsafe.Add(fr, baseOff))
-		if base == nil {
-			return nil, fmt.Errorf("exec: %s: field write on a nil %s", name, srcType)
+	var target func(fr unsafe.Pointer) (unsafe.Pointer, error)
+	if direct {
+		at := baseOff + fieldOff
+		target = func(fr unsafe.Pointer) (unsafe.Pointer, error) {
+			return unsafe.Add(fr, at), nil
 		}
-		return unsafe.Add(base, fieldOff), nil
+	} else {
+		target = func(fr unsafe.Pointer) (unsafe.Pointer, error) {
+			base := *(*unsafe.Pointer)(unsafe.Add(fr, baseOff))
+			if base == nil {
+				return nil, fmt.Errorf("exec: %s: field write on a nil %s", name, srcType)
+			}
+			return unsafe.Add(base, fieldOff), nil
+		}
 	}
 
 	if cl.scalar() {
@@ -2088,33 +2127,49 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 // simply add when one of them is itself a pointer, so those go to the
 // reflect evaluator.
 func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, error) {
-	if !a.deref || len(a.index) != 1 {
-		return node{}, fmt.Errorf("only a single field of a pointer to a struct is in the table")
+	if len(a.index) != 1 {
+		return node{}, fmt.Errorf("only a single field is in the table")
 	}
 	srcType := a.src.typ
-	if srcType == nil || srcType.Kind() != reflect.Pointer || srcType.Elem().Kind() != reflect.Struct {
-		return node{}, fmt.Errorf("a field source must be a pointer to a struct")
+
+	var load func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error)
+	var sf reflect.StructField
+	switch {
+	case a.deref && srcType != nil && srcType.Kind() == reflect.Pointer && srcType.Elem().Kind() == reflect.Struct:
+		sf = srcType.Elem().Field(a.index[0])
+		src, err := c.argNode(a.src, srcType, lPtr)
+		if err != nil {
+			return node{}, err
+		}
+		sp, off, name := src.P, sf.Offset, sf.Name
+		load = func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			p, err := sp(fr, ctx, st, d)
+			if err != nil {
+				return nil, err
+			}
+			if p == nil {
+				return nil, fmt.Errorf("exec: field %s read on a nil %s", name, srcType)
+			}
+			return unsafe.Add(p, off), nil
+		}
+	case !a.deref && a.src.kind == vaSlot && srcType != nil && srcType.Kind() == reflect.Struct:
+		// The struct lives in the frame, so the field is at a fixed
+		// offset from the frame pointer: no load, no nil to check.
+		field, ok := c.slotOf[a.src.slot]
+		if !ok {
+			return node{}, fmt.Errorf("a field source has no slot")
+		}
+		sf = srcType.Field(a.index[0])
+		at := c.offs[field] + sf.Offset
+		load = func(fr unsafe.Pointer, _ context.Context, _ map[string]any, _ any) (unsafe.Pointer, error) {
+			return unsafe.Add(fr, at), nil
+		}
+	default:
+		return node{}, fmt.Errorf("this field source is not in the table")
 	}
-	sf := srcType.Elem().Field(a.index[0])
 	fcl := layoutOf(sf.Type)
 	if fcl == lBad {
 		return node{}, fmt.Errorf("field %s of type %s has no layout class", sf.Name, sf.Type)
-	}
-	src, err := c.argNode(a.src, srcType, lPtr)
-	if err != nil {
-		return node{}, err
-	}
-	sp, off, name := src.P, sf.Offset, sf.Name
-
-	load := func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
-		p, err := sp(fr, ctx, st, d)
-		if err != nil {
-			return nil, err
-		}
-		if p == nil {
-			return nil, fmt.Errorf("exec: field %s read on a nil %s", name, srcType)
-		}
-		return unsafe.Add(p, off), nil
 	}
 
 	var out node
