@@ -279,3 +279,55 @@ func TestParseAllocBudget(t *testing.T) {
 		t.Errorf("parse+compile allocates %.0f/run, budget 32", n)
 	}
 }
+
+// TestStringEscapes pins escape interpretation. Before this, the byte
+// after a backslash was appended verbatim, so "a\nb" silently became
+// "anb": the named escapes are interpreted, and an unknown one is a
+// parse error rather than a quiet mangle.
+func TestStringEscapes(t *testing.T) {
+	rt, seen := litRuntime(t)
+	for _, tc := range []struct{ src, want string }{
+		{`wantAny("a\"b");`, `a"b`},
+		{`wantAny("a\nb");`, "a\nb"},
+		{`wantAny("a\tb");`, "a\tb"},
+		{`wantAny("a\rb");`, "a\rb"},
+		{`wantAny("a\\b");`, `a\b`},
+		{`wantAny('a\'b');`, "a'b"},
+	} {
+		*seen = nil
+		fn, err := rt.Compile(tc.src)
+		if err != nil {
+			t.Errorf("%s: %v", tc.src, err)
+			continue
+		}
+		if _, err := fn.Exec[any](nil); err != nil {
+			t.Errorf("%s: %v", tc.src, err)
+			continue
+		}
+		if *seen != tc.want {
+			t.Errorf("%s: callee saw %q, want %q", tc.src, *seen, tc.want)
+		}
+	}
+	if _, err := rt.Compile(`wantAny("a\qb");`); err == nil {
+		t.Error("an unknown escape must be a parse error, not a silent mangle")
+	}
+}
+
+// TestStatementsAcrossLines pins that a newline is whitespace like any
+// other: the documentation formats programs one statement per line, and
+// the parser must not care.
+func TestStatementsAcrossLines(t *testing.T) {
+	rt, _ := litRuntime(t)
+	oneLine := `u := url.Parse("/nl"); return u;`
+	multi := "u := url.Parse(\"/nl\");\n\nreturn\n\tu\n;"
+	for _, src := range []string{oneLine, multi} {
+		fn, err := rt.Compile(src)
+		if err != nil {
+			t.Fatalf("%q: %v", src, err)
+		}
+		u, err := fn.Exec[*url.URL](nil)
+		if err != nil || u.Path != "/nl" {
+			t.Errorf("%q: got %v, %v", src, u, err)
+		}
+	}
+}

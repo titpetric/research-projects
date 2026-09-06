@@ -155,10 +155,14 @@ A `var` statement resolves its type name against the registry and puts
 that type's zero value in scope:
 
 ```
-var x int64;          x = 123;
+var x int64;
+x = 123;
+
 var b []uint8;
 var r *http.Request;
-var u url.URL;        json.NewEncoder(dest).Encode(u.Path);
+
+var u url.URL;
+json.NewEncoder(dest).Encode(u.Path);
 ```
 
 The type name can carry `*` and `[]` prefixes, matching how
@@ -182,10 +186,14 @@ out what `x` is. Three rules, in order:
    or `float64` when it has a decimal point.
 
 ```
-var x int32; x = 7;              int32, from the declaration
-x = 5; takesInt(x);              int, from the use
-x = 5;                           int64, nothing to infer from
-x = 5.5;                         float64
+var x int32;
+x = 7;          int32, from the declaration
+
+x = 5;
+takesInt(x);    int, from the use
+
+x = 5;          int64, nothing to infer from
+x = 5.5;        float64
 ```
 
 A declared type is not overridden by use. `var x int64; x = 5;
@@ -229,13 +237,28 @@ a class with `int64` and `uint64` on a 64 bit platform.
 Between them, these all run without `reflect.Value.Call`:
 
 ```
-var x int64; x = 1; json.NewEncoder(dest).Encode(x);
-var x float64; x = 2.5; json.NewEncoder(dest).Encode(x);
-var b bool; json.NewEncoder(dest).Encode(b);
-x = 1; json.NewEncoder(dest).Encode(x);
-var x int64; x = 3; takesI64(x);
+var x int64;
+x = 1;
+json.NewEncoder(dest).Encode(x);
+
+var x float64;
+x = 2.5;
+json.NewEncoder(dest).Encode(x);
+
+var b bool;
+json.NewEncoder(dest).Encode(b);
+
+x = 1;
+json.NewEncoder(dest).Encode(x);
+
+var x int64;
+x = 3;
+takesI64(x);
+
 json.NewEncoder(dest).Encode(takesInt(42));
-req := http.NewRequest("GET", "/"); json.NewEncoder(dest).Encode(req.ContentLength);
+
+req := http.NewRequest("GET", "/");
+json.NewEncoder(dest).Encode(req.ContentLength);
 ```
 
 Boxing a scalar into an interface allocates, because the data word has

@@ -444,7 +444,21 @@ func (p *Parser) stringLitEscaped(quote byte, start int) (arg, error) {
 				return arg{}, fmt.Errorf("parse: unterminated escape at offset %d", p.pos)
 			}
 			p.pos++
-			buf = append(buf, p.src[p.pos])
+			// The named escapes are interpreted; an unrecognised one is
+			// an error rather than the backslash being dropped, which
+			// silently turned "a\nb" into "anb".
+			switch e := p.src[p.pos]; e {
+			case 'n':
+				buf = append(buf, '\n')
+			case 't':
+				buf = append(buf, '\t')
+			case 'r':
+				buf = append(buf, '\r')
+			case '\\', '"', '\'':
+				buf = append(buf, e)
+			default:
+				return arg{}, fmt.Errorf("parse: unknown escape \\%c at offset %d", e, p.pos)
+			}
 		default:
 			buf = append(buf, c)
 		}
