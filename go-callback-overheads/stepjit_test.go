@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"runtime"
+	"strings"
 	"testing"
+	"unsafe"
 )
 
 // compilePair compiles src twice: once as the step-JIT program and once
@@ -263,53 +266,66 @@ func TestStepJITReassignedSlotIsCopied(t *testing.T) {
 	}
 }
 
-// TestStepJITFallsBackWholeProgram checks that one step outside the
-// table sends the entire program to reflect rather than mixing tiers.
-func TestStepJITFallsBackWholeProgram(t *testing.T) {
+// TestBridgedCallStaysInTheTree replaces the whole-program fallback
+// test: a call outside the shape table no longer sends the program to
+// the reflect evaluator, it compiles to a reflect bridge and its
+// neighbours stay direct calls. Supports reports the bridge, and the
+// bridged call still runs correctly.
+func TestBridgedCallStaysInTheTree(t *testing.T) {
 	rt := pairRuntime(t)
-	// An int result has no layout class in the table.
-	if err := rt.Bind("count", func() int { return 7 }); err != nil {
+	// Five string parameters is a shape the table does not carry, so
+	// the call bridges while its neighbours stay direct.
+	if err := rt.Bind("join5", func(a, b, c, d, e string) (*url.URL, error) {
+		return &url.URL{Path: "/" + a + b + c + d + e}, nil
+	}); err != nil {
 		t.Fatal(err)
 	}
-	prog, err := (&Parser{}).Parse(`
-		n := count();
-		json.NewEncoder(dest).Encode(url.Parse("/x"));
-	`)
-	if err != nil {
-		t.Fatal(err)
+	const src = `
+		u := join5("b", "r", "i", "d", "ge");
+		json.NewEncoder(dest).Encode(u.Path);
+	`
+	err := rt.Supports(src)
+	if err == nil {
+		t.Fatal("a five string call should be reported as bridged")
 	}
-	p, err := rt.compiler.compileProgram(prog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := jitCompileProgram(p); err == nil {
-		t.Fatal("an int result should keep the program on the reflect tier")
+	if !strings.Contains(err.Error(), "bridge") || !strings.Contains(err.Error(), "join5") {
+		t.Fatalf("Supports = %v, want it to name the bridged call", err)
 	}
 
-	// The program must still run, and still be correct.
-	fn, err := rt.Compile(`
-		n := count();
-		json.NewEncoder(dest).Encode(url.Parse("/x"));
-	`)
-	if err != nil {
+	prog, perr := (&Parser{}).Parse(src)
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	p, perr := rt.compiler.compileProgram(prog)
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	jp, jerr := jitCompileProgram(p)
+	if jerr != nil {
+		t.Fatalf("the program should still compile to the tree: %v", jerr)
+	}
+	if len(jp.bridged) == 0 {
+		t.Fatal("expected a bridged call")
+	}
+
+	var dest bytes.Buffer
+	if _, err := jp.run(context.Background(), nil, &dest); err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	if err := fn.Scan(&buf, nil); err != nil {
-		t.Fatal(err)
-	}
-	if buf.Len() == 0 {
-		t.Error("fallback program wrote nothing")
+	if got, want := dest.String(), "\"/bridge\"\n"; got != want {
+		t.Errorf("dest = %q, want %q", got, want)
 	}
 }
 
 // TestPlanInlineLeavesTheTreeAlone guards the interaction between the
-// two tiers. planInline decides that a value can travel as a return
-// value instead of through a slot, which drops the statement that
-// produced it. If it recorded that by editing the call tree, a program
-// that then failed to JIT would reach the reflect evaluator with the
-// producer both spliced into its reader and still present as its own
-// statement, and would run it twice.
+// tiers. planInline decides a value can travel as a return value
+// instead of through a slot, which drops the statement that produced
+// it. That decision lives in a side table: if it edited the call tree,
+// the reflect evaluator, which runs the same tree when the whole
+// program declines, would see the producer both spliced into its
+// reader and standing as its own statement, and run it twice. The
+// bridge has the mirror obligation: a bridged reader must follow the
+// splice to the producer's node rather than reading the dropped slot.
 func TestPlanInlineLeavesTheTreeAlone(t *testing.T) {
 	rt := pairRuntime(t)
 	calls := 0
@@ -319,30 +335,16 @@ func TestPlanInlineLeavesTheTreeAlone(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// An int result has no layout class, so the program compiles the
-	// inline plan and then declines to JIT.
-	if err := rt.Bind("count", func() int { return 7 }); err != nil {
-		t.Fatal(err)
-	}
 
-	const src = `
+	// var u url.URL keeps this program on the reflect evaluator: a
+	// value-struct slot has no layout class.
+	const fallback = `
 		u := once("/a");
 		s := u.String();
-		n := count();
+		var w url.URL;
 		json.NewEncoder(dest).Encode(s);
 	`
-	prog, err := (&Parser{}).Parse(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := rt.compiler.compileProgram(prog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := jitCompileProgram(p); err == nil {
-		t.Fatal("this program is meant to fall back to reflect")
-	}
-	fn, err := rt.Compile(src)
+	fn, err := rt.Compile(fallback)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,10 +353,38 @@ func TestPlanInlineLeavesTheTreeAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	if calls != 1 {
-		t.Errorf("once called %d times, want 1", calls)
+		t.Errorf("reflect tier: once called %d times, want 1", calls)
 	}
 	if got, want := dest.String(), "\"/a\"\n"; got != want {
-		t.Errorf("dest = %q, want %q", got, want)
+		t.Errorf("reflect tier: dest = %q, want %q", got, want)
+	}
+
+	// The same shape with a bridged reader, which must see the spliced
+	// producer exactly once through the side table.
+	if err := rt.Bind("reader", func(u *url.URL, a, b, c, d string) (*url.URL, error) {
+		return &url.URL{Path: u.Path + a + b + c + d}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	const bridged = `
+		u := once("/b");
+		r := reader(u, "1", "2", "3", "4");
+		json.NewEncoder(dest).Encode(r.Path);
+	`
+	fn, err = rt.Compile(bridged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls = 0
+	dest.Reset()
+	if err := fn.Scan(&dest, nil); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("bridged tier: once called %d times, want 1", calls)
+	}
+	if got, want := dest.String(), "\"/b1234\"\n"; got != want {
+		t.Errorf("bridged tier: dest = %q, want %q", got, want)
 	}
 }
 
@@ -538,5 +568,40 @@ func TestContextShapeMatchesReflect(t *testing.T) {
 	}
 	if a.String() != b.String() || a.String() != "\"PATCH\"\n" {
 		t.Errorf("dest = %q (jit) vs %q (reflect), want %q", a.String(), b.String(), "\"PATCH\"\n")
+	}
+}
+
+// TestVariadicSliceABI pins the assumption behind spread and pack: a
+// variadic function is ABI-identical to the same signature with the
+// variadic parameter as a plain slice, so casting the funcval and
+// passing a slice header is a correct call. Covers a top-level func, a
+// closure with captured state and mixed parameters, an empty slice,
+// and ...any elements.
+func TestVariadicSliceABI(t *testing.T) {
+	parts := []string{"a", "b", "c"}
+	h := *(*sliceHdr)(unsafe.Pointer(&parts))
+
+	join := castFn[func(sliceHdr) string](funcPtr(path.Join))
+	if got := join(h); got != "a/b/c" {
+		t.Errorf("path.Join = %q, want a/b/c", got)
+	}
+	var empty []string
+	if got := join(*(*sliceHdr)(unsafe.Pointer(&empty))); got != "" {
+		t.Errorf("empty spread = %q, want empty", got)
+	}
+
+	sep := "|"
+	cl := func(prefix string, elems ...string) string {
+		return prefix + ":" + strings.Join(elems, sep)
+	}
+	cast := castFn[func(string, sliceHdr) string](funcPtr(cl))
+	if got, want := cast("p", h), cl("p", parts...); got != want {
+		t.Errorf("closure = %q, want %q", got, want)
+	}
+
+	vals := []any{"x", 1, true}
+	sprint := castFn[func(sliceHdr) string](funcPtr(fmt.Sprint))
+	if got, want := sprint(*(*sliceHdr)(unsafe.Pointer(&vals))), fmt.Sprint(vals...); got != want {
+		t.Errorf("...any = %q, want %q", got, want)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -158,8 +159,14 @@ func (r *Runtime) Supports(src string) error {
 	if err != nil {
 		return err
 	}
-	_, err = jitCompileProgram(p)
-	return err
+	jp, err := jitCompileProgram(p)
+	if err != nil {
+		return err
+	}
+	if len(jp.bridged) > 0 {
+		return fmt.Errorf("%d calls bridge through reflect: %s", len(jp.bridged), strings.Join(jp.bridged, "; "))
+	}
+	return nil
 }
 
 // Compile parses and compiles a program into its constructed func.

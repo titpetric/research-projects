@@ -189,9 +189,33 @@ func newBenchFixtureRuntime(b *testing.B) *Runtime {
 		"fmt":     {"Sprintf": fmt.Sprintf, "Sprint": fmt.Sprint},
 		"strings": {"Fields": strings.Fields},
 		"path":    {"Join": path.Join},
+		// Equal is rebound without the variadic tail, (tb, want, got,
+		// message): every parameter has a shape, so an assertion is a
+		// direct call. The message is optional the way every trailing
+		// argument is, zero-filled to "".
 		"assert": {
-			"Equal": assert.Equal,
-			"True":  assert.True,
+			"Equal": func(tb any, want, got any, message string) {
+				t, ok := tb.(assert.TestingT)
+				if !ok {
+					panic(fmt.Sprintf("assert.Equal: tb is %T, want a testing.TB", tb))
+				}
+				if message != "" {
+					assert.Equal(t, want, got, message)
+					return
+				}
+				assert.Equal(t, want, got)
+			},
+			"True": func(tb any, value bool, message string) {
+				t, ok := tb.(assert.TestingT)
+				if !ok {
+					panic(fmt.Sprintf("assert.True: tb is %T, want a testing.TB", tb))
+				}
+				if message != "" {
+					assert.True(t, value, message)
+					return
+				}
+				assert.True(t, value)
+			},
 		},
 	} {
 		if err := rt.BindScope(scope, fns); err != nil {
