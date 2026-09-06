@@ -1,6 +1,7 @@
 package callbacks
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -228,7 +229,7 @@ func jitCompile(fn any, ft reflect.Type, call *callExpr) CompiledFunc {
 	switch {
 	case ptrResult && ns == 1 && ne == 0 && n == 1:
 		f, a0 := castFn[fnS_PE](fptr), sa[0]
-		return func(stack map[string]any, _ any) (any, error) {
+		return func(_ context.Context, stack map[string]any, _ any) (any, error) {
 			s0, err := a0.get(stack)
 			if err != nil {
 				return nil, err
@@ -238,7 +239,7 @@ func jitCompile(fn any, ft reflect.Type, call *callExpr) CompiledFunc {
 		}
 	case ptrResult && ns == 2 && ne == 0 && n == 2:
 		f, a0, a1 := castFn[fnSS_PE](fptr), sa[0], sa[1]
-		return func(stack map[string]any, _ any) (any, error) {
+		return func(_ context.Context, stack map[string]any, _ any) (any, error) {
 			s0, err := a0.get(stack)
 			if err != nil {
 				return nil, err
@@ -252,7 +253,7 @@ func jitCompile(fn any, ft reflect.Type, call *callExpr) CompiledFunc {
 		}
 	case ptrResult && ns == 2 && ne == 1 && n == 3:
 		f, a0, a1, e0 := castFn[fnSSE_PE](fptr), sa[0], sa[1], ea[0]
-		return func(stack map[string]any, _ any) (any, error) {
+		return func(_ context.Context, stack map[string]any, _ any) (any, error) {
 			s0, err := a0.get(stack)
 			if err != nil {
 				return nil, err
@@ -270,7 +271,7 @@ func jitCompile(fn any, ft reflect.Type, call *callExpr) CompiledFunc {
 		}
 	case !ptrResult && ns == 0 && ne == 2 && n == 2:
 		f, e0, e1 := castFn[fnEE_E](fptr), ea[0], ea[1]
-		return func(stack map[string]any, _ any) (any, error) {
+		return func(_ context.Context, stack map[string]any, _ any) (any, error) {
 			i0, err := e0.get(stack)
 			if err != nil {
 				return nil, err

@@ -60,6 +60,9 @@ type arg struct {
 	f    float64
 	b    bool      // argBool
 	sub  *callExpr // argCall
+	// spread marks "xs...": the value expands into a variadic
+	// parameter.
+	spread bool
 }
 
 // link is one ".Method(args)" step chained onto a call.
@@ -98,6 +101,11 @@ type stmt struct {
 	// retVal is a return statement's value when it is not a call:
 	// "return x;", "return req.Header;", "return 5;".
 	retVal *arg
+
+	// fieldLhs is the dotted target of a field assignment,
+	// "req.Method = ...". The base is a program-bound name and the
+	// rest are field selectors.
+	fieldLhs []string
 }
 
 // program is a parsed source unit.
@@ -168,20 +176,58 @@ func (p *Parser) stmt() (stmt, error) {
 		if p.consume(';') {
 			return s, nil
 		}
-		a, err := p.arg()
-		if err != nil {
-			return s, err
-		}
-		if a.kind == argCall {
-			s.call = a.sub
+		// The call form is tried first so "return f(x);" parses its
+		// path once; only when that fails is the value form read.
+		save := p.pos
+		if call, err := p.expr(); err == nil {
+			s.call = call
 		} else {
-			s.retVal = &a
+			p.pos = save
+			a, err := p.arg()
+			if err != nil {
+				return s, err
+			}
+			if a.kind == argCall {
+				s.call = a.sub
+			} else {
+				s.retVal = &a
+			}
 		}
 		if !p.consume(';') {
 			return s, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
 		}
 		return s, nil
 	}
+
+	// A dotted path followed by a single "=" is a field assignment.
+	// It is sniffed before the assignment list, which only reads bare
+	// names; a path followed by "(" is a call and rewinds.
+	fieldSave := p.pos
+	if p.ident() != "" && p.peek() == '.' {
+		p.pos = fieldSave
+		path, _ := p.path()
+		if len(path) >= 2 {
+			p.skipSpace()
+			if p.pos < len(p.src) && p.src[p.pos] == '=' && (p.pos+1 >= len(p.src) || p.src[p.pos+1] != '=') {
+				p.pos++
+				a, err := p.arg()
+				if err != nil {
+					return stmt{}, err
+				}
+				if a.kind == argVar || a.kind == argPath {
+					return stmt{}, fmt.Errorf("parse: cannot assign a name to a field at offset %d", p.pos)
+				}
+				if !p.consume(';') {
+					return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+				}
+				if a.kind == argCall {
+					return stmt{fieldLhs: path, call: a.sub}, nil
+				}
+				return stmt{fieldLhs: path, lit: &a}, nil
+			}
+		}
+	}
+	p.pos = fieldSave
 
 	// A statement is a call, optionally preceded by the names its
 	// results bind to. The names are only known to be names once the
@@ -351,6 +397,9 @@ func (p *Parser) args() ([]arg, error) {
 		a, err := p.arg()
 		if err != nil {
 			return nil, err
+		}
+		if p.consumeStr("...") {
+			a.spread = true
 		}
 		out = append(out, a)
 	}
@@ -559,6 +608,15 @@ func (p *Parser) skipSpace() {
 		switch p.src[p.pos] {
 		case ' ', '\t', '\n', '\r':
 			p.pos++
+		case '/':
+			// A line comment runs to the newline. There is no block
+			// form.
+			if p.pos+1 >= len(p.src) || p.src[p.pos+1] != '/' {
+				return
+			}
+			for p.pos < len(p.src) && p.src[p.pos] != '\n' {
+				p.pos++
+			}
 		default:
 			return
 		}

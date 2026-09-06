@@ -1,6 +1,7 @@
 package callbacks
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -72,7 +73,7 @@ func (s *Statement) Func() CompiledFunc {
 	return s.call
 }
 
-func (s *Statement) call(stack map[string]any, dest any) (any, error) {
+func (s *Statement) call(ctx context.Context, stack map[string]any, dest any) (any, error) {
 	p := s.borrow()
 	args := *p
 	for i := range s.vars {

@@ -1,8 +1,10 @@
 package callbacks
 
 import (
+	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"unsafe"
 )
@@ -38,7 +40,10 @@ const (
 	vaDest                   // the pointer Scan was handed
 	vaCall                   // a nested call
 	vaField                  // a struct field read off another value
+	vaCtx                    // the execution context, auto-filled
 )
+
+var ctxType = reflect.TypeFor[context.Context]()
 
 // vmArg is one argument of a compiled call.
 //
@@ -105,6 +110,9 @@ type vmCall struct {
 	errIdx int // index of the trailing error result, -1 when there is none
 	nres   int // results excluding that error
 	off    int // this call's window into the per-run frame
+	// spread marks a variadic call whose last argument is the slice
+	// itself, f(xs...): the invocation goes through CallSlice.
+	spread bool
 }
 
 // vmStmt is one statement: a call, the slots its results bind to, and
@@ -121,6 +129,24 @@ type vmStmt struct {
 	// retArg is a return statement's value when it is not a call:
 	// a name, a field read, or a literal.
 	retArg *vmArg
+
+	// fieldSet writes a value through a field: req.Method = "POST".
+	fieldSet *vmFieldSet
+}
+
+// fieldStep is one selector of a field-assignment target.
+type fieldStep struct {
+	index []int
+	deref bool
+}
+
+// vmFieldSet is a compiled field assignment: the slot the base name
+// lives in, the selectors to the field, and the value.
+type vmFieldSet struct {
+	base  int // slot of the base name
+	steps []fieldStep
+	val   *vmArg
+	field string // for diagnostics
 }
 
 // slotInit is the zero value a var statement puts in scope before the
@@ -161,11 +187,33 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 	slots := map[string]int{}
 	env := map[string]reflect.Type{}
 
+	// A name that collides with a binding can never be read back:
+	// path resolution prefers the binding, so url := ... with url.Parse
+	// bound compiles and then silently resolves the other way. Shadowing
+	// is rejected instead.
+	reserved := map[string]bool{"dest": true, "true": true, "false": true, "nil": true, "var": true, "return": true}
+	for name := range c.bindings {
+		if i := strings.IndexByte(name, '.'); i > 0 {
+			reserved[name[:i]] = true
+		} else {
+			reserved[name] = true
+		}
+	}
+	checkName := func(name string) error {
+		if reserved[name] {
+			return fmt.Errorf("compile: %s shadows a binding or keyword and cannot be assigned", name)
+		}
+		return nil
+	}
+
 	// A name declared with var fixes its type before anything else is
 	// compiled, so a literal assigned to it converts to that type.
 	declared := map[string]reflect.Type{}
 	for si := range prog.stmts {
 		if s := prog.stmts[si]; s.varType != "" {
+			if err := checkName(s.varName); err != nil {
+				return nil, err
+			}
 			t, ok := c.lookupType(s.varType)
 			if !ok {
 				return nil, fmt.Errorf("compile: unknown type %q, register it with BindType", s.varType)
@@ -200,13 +248,21 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 			continue
 		}
 
+		if s.fieldLhs != nil {
+			fs, err := c.compileFieldSet(slots, env, s)
+			if err != nil {
+				return nil, err
+			}
+			p.stmts = append(p.stmts, vmStmt{fieldSet: fs})
+			continue
+		}
 		if s.lit != nil {
 			if len(s.lhs) != 1 {
 				return nil, fmt.Errorf("compile: a literal assigns to exactly one name")
 			}
 			name := s.lhs[0]
-			if name == "dest" {
-				return nil, fmt.Errorf("compile: dest is supplied by Scan and cannot be assigned")
+			if err := checkName(name); err != nil {
+				return nil, err
 			}
 			t, ok := env[name]
 			if !ok {
@@ -247,8 +303,8 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 
 		out := make([]int, 0, len(s.lhs))
 		for i, name := range s.lhs {
-			if name == "dest" {
-				return nil, fmt.Errorf("compile: dest is supplied by Scan and cannot be assigned")
+			if err := checkName(name); err != nil {
+				return nil, err
 			}
 			if _, ok := slots[name]; !ok && !s.define {
 				return nil, fmt.Errorf("compile: %s is not defined, use := or var", name)
@@ -369,13 +425,35 @@ func (c *Compiler) inferLiteralType(prog *program, name string, lit arg) reflect
 func (c *Compiler) useType(e *callExpr, name string) reflect.Type {
 	if b, ok := c.bindings[joinPath(e.path)]; ok && len(e.chain) == 0 {
 		ft := b.rv.Type()
-		for i, a := range e.args {
-			if i >= ft.NumIn() {
-				break
+		fixed := ft.NumIn()
+		if ft.IsVariadic() {
+			fixed--
+		}
+		i := 0
+		for _, a := range e.args {
+			// Mirror compileCall: a context parameter consumes no
+			// written argument.
+			for i < fixed && ft.In(i) == ctxType {
+				i++
+			}
+			var pt reflect.Type
+			switch {
+			case i < fixed:
+				pt = ft.In(i)
+			case ft.IsVariadic():
+				pt = ft.In(fixed).Elem()
+			default:
+				return nil
 			}
 			if a.kind == argVar && a.str == name {
-				return ft.In(i)
+				// An empty interface accepts anything, so it says
+				// nothing about what the name should be.
+				if pt.Kind() == reflect.Interface && pt.NumMethod() == 0 {
+					return nil
+				}
+				return pt
 			}
+			i++
 		}
 	}
 	for _, a := range e.args {
@@ -467,6 +545,97 @@ func fieldOf(t reflect.Type, name string) (f reflect.StructField, deref bool, ok
 		return reflect.StructField{}, false, false
 	}
 	return f, deref, true
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// unspread strips the spread flag for compiling the slice argument
+// itself.
+func unspread(a arg) arg {
+	a.spread = false
+	return a
+}
+
+// staticType is the compile-time type of an argument when it has one:
+// a program-bound name. Everything else answers nil, which for the
+// context rule means auto-fill.
+func (c *Compiler) staticType(env map[string]reflect.Type, a arg) reflect.Type {
+	if a.kind == argVar {
+		return env[a.str]
+	}
+	return nil
+}
+
+// compileFieldSet compiles req.Method = value. The base is a
+// program-bound name, every selector is an exported field, and the
+// value is a literal or a call whose result is assignable to the field.
+func (c *Compiler) compileFieldSet(slots map[string]int, env map[string]reflect.Type, s stmt) (*vmFieldSet, error) {
+	base := s.fieldLhs[0]
+	slot, ok := slots[base]
+	if !ok {
+		return nil, fmt.Errorf("compile: %s is not a name bound by the program, so its fields cannot be assigned", base)
+	}
+	t := env[base]
+	fs := &vmFieldSet{base: slot, field: joinPath(s.fieldLhs)}
+	for _, seg := range s.fieldLhs[1:] {
+		f, deref, ok := fieldOf(t, seg)
+		if !ok {
+			return nil, fmt.Errorf("compile: %s has no field %s", t, seg)
+		}
+		fs.steps = append(fs.steps, fieldStep{index: f.Index, deref: deref})
+		t = f.Type
+	}
+
+	if s.lit != nil {
+		v, err := literalValue(*s.lit, t)
+		if err != nil {
+			return nil, fmt.Errorf("compile: %s: %w", fs.field, err)
+		}
+		fs.val = &vmArg{kind: vaConst, val: v, typ: t, iface: -1}
+		return fs, nil
+	}
+	call, rt, err := c.compileExpr(slots, env, s.call)
+	if err != nil {
+		return nil, err
+	}
+	if rt == nil || !rt.AssignableTo(t) {
+		return nil, fmt.Errorf("compile: %s: cannot assign %s to %s", fs.field, rt, t)
+	}
+	fs.val = &vmArg{kind: vaCall, sub: call, typ: t, iface: -1}
+	return fs, nil
+}
+
+// apply writes the value through the field chain. Addressability comes
+// from a pointer in the chain; a struct held by value in a slot is only
+// settable when the slot was created addressable by a var declaration.
+func (fs *vmFieldSet) apply(ctx context.Context, slots, frame []reflect.Value, ifaces []ifacePair, stack map[string]any, dest any) error {
+	v := slots[fs.base]
+	if !v.IsValid() {
+		return fmt.Errorf("exec: %s: the base is not set", fs.field)
+	}
+	for _, st := range fs.steps {
+		if st.deref {
+			if v.IsNil() {
+				return fmt.Errorf("exec: %s: field write on a nil %s", fs.field, v.Type())
+			}
+			v = v.Elem()
+		}
+		v = v.FieldByIndex(st.index)
+	}
+	if !v.CanSet() {
+		return fmt.Errorf("exec: %s: the value is not addressable, declare the base with var or hold it behind a pointer", fs.field)
+	}
+	val, err := fs.val.get(ctx, slots, frame, ifaces, stack, dest)
+	if err != nil {
+		return err
+	}
+	v.Set(val)
+	return nil
 }
 
 // compileRetVal compiles the value of a "return x;" form. The
@@ -616,40 +785,80 @@ func (c *Compiler) compileExpr(slots map[string]int, env map[string]reflect.Type
 // arguments written in the source, which fill the parameters after it.
 func (c *Compiler) compileCall(slots map[string]int, env map[string]reflect.Type, fn reflect.Value, name string, recv *vmArg, src []arg) (*vmCall, error) {
 	ft := fn.Type()
-	if ft.IsVariadic() {
-		return nil, fmt.Errorf("compile: variadic binding %q not supported", name)
-	}
-
-	off := 0
-	if recv != nil {
-		off = 1
-	}
-	if len(src)+off > ft.NumIn() {
-		return nil, fmt.Errorf("compile: %s takes %d arguments, got %d", name, ft.NumIn()-off, len(src))
-	}
 
 	call := &vmCall{fn: fn, name: name, errIdx: -1}
-	call.args = make([]*vmArg, ft.NumIn())
 	if recv != nil {
 		if !recv.typ.AssignableTo(ft.In(0)) {
 			return nil, fmt.Errorf("compile: %s: receiver is %s, want %s", name, recv.typ, ft.In(0))
 		}
-		call.args[0] = recv
+		call.args = append(call.args, recv)
 	}
 
-	for i := off; i < ft.NumIn(); i++ {
+	// Parameters and written arguments advance independently: a
+	// context.Context parameter is filled from the execution context
+	// and consumes no argument, unless the argument standing at that
+	// position is itself statically a context, which is how a program
+	// passes one it made on purpose.
+	fixed := ft.NumIn()
+	if ft.IsVariadic() {
+		fixed--
+	}
+	j := 0
+	for i := len(call.args); i < fixed; i++ {
 		pt := ft.In(i)
-		// A parameter the source does not supply is its zero value:
-		// "" for string, nil for io.Reader.
-		if i-off >= len(src) {
-			call.args[i] = &vmArg{kind: vaConst, val: reflect.Zero(pt), typ: pt, iface: -1}
+		if pt == ctxType && !(j < len(src) && c.staticType(env, src[j]) == ctxType) {
+			call.args = append(call.args, &vmArg{kind: vaCtx, typ: pt, iface: -1})
 			continue
 		}
-		a, err := c.compileArg(slots, env, name, i-off, pt, src[i-off])
+		// A parameter the source does not supply is its zero value:
+		// "" for string, nil for io.Reader.
+		if j >= len(src) {
+			call.args = append(call.args, &vmArg{kind: vaConst, val: reflect.Zero(pt), typ: pt, iface: -1})
+			continue
+		}
+		if src[j].spread {
+			return nil, fmt.Errorf("compile: %s argument %d: ... spreads only into a variadic parameter", name, j+1)
+		}
+		a, err := c.compileArg(slots, env, name, j, pt, src[j])
 		if err != nil {
 			return nil, err
 		}
-		call.args[i] = a
+		call.args = append(call.args, a)
+		j++
+	}
+
+	rest := src[min(j, len(src)):]
+	switch {
+	case !ft.IsVariadic():
+		if len(rest) > 0 {
+			return nil, fmt.Errorf("compile: %s takes %d arguments, got %d", name, fixed-boolToInt(recv != nil), len(src))
+		}
+	case len(rest) == 1 && rest[0].spread:
+		// f(xs...): the slice is passed whole and the invocation goes
+		// through CallSlice.
+		st := ft.In(fixed)
+		a, err := c.compileArg(slots, env, name, j, st, unspread(rest[0]))
+		if err != nil {
+			return nil, err
+		}
+		call.args = append(call.args, a)
+		call.spread = true
+	default:
+		// Individual arguments pack into the variadic slot, each
+		// compiled against the element type; reflect.Value.Call packs
+		// them the way a Go call site would.
+		et := ft.In(fixed).Elem()
+		for _, a := range rest {
+			if a.spread {
+				return nil, fmt.Errorf("compile: %s: ... must be the only variadic argument", name)
+			}
+			va, err := c.compileArg(slots, env, name, j, et, a)
+			if err != nil {
+				return nil, err
+			}
+			call.args = append(call.args, va)
+			j++
+		}
 	}
 
 	for i := 0; i < ft.NumOut(); i++ {
@@ -742,7 +951,7 @@ func (c *Compiler) compileArg(slots map[string]int, env map[string]reflect.Type,
 
 // run executes the program. Slots are allocated per execution, so
 // concurrent runs of the same compiled program do not share state.
-func (p *vmProgram) run(stack map[string]any, dest any) (any, error) {
+func (p *vmProgram) run(ctx context.Context, stack map[string]any, dest any) (any, error) {
 	// One allocation per run for both the named slots and every call's
 	// argument window. Each call owns a disjoint range, so a nested
 	// call never overwrites the arguments its parent is still filling.
@@ -753,7 +962,9 @@ func (p *vmProgram) run(stack map[string]any, dest any) (any, error) {
 		ifaces = make([]ifacePair, p.nifaces)
 	}
 	for _, in := range p.inits {
-		slots[in.slot] = in.zero
+		// New rather than Zero, so a field of a var-declared struct is
+		// settable in place.
+		slots[in.slot] = reflect.New(in.zero.Type()).Elem()
 	}
 	for i := range p.stmts {
 		s := &p.stmts[i]
@@ -761,8 +972,14 @@ func (p *vmProgram) run(stack map[string]any, dest any) (any, error) {
 			slots[s.out[0]] = s.lit
 			continue
 		}
+		if s.fieldSet != nil {
+			if err := s.fieldSet.apply(ctx, slots, frame, ifaces, stack, dest); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		if s.retArg != nil {
-			v, err := s.retArg.get(slots, frame, ifaces, stack, dest)
+			v, err := s.retArg.get(ctx, slots, frame, ifaces, stack, dest)
 			if err != nil {
 				return nil, err
 			}
@@ -774,7 +991,7 @@ func (p *vmProgram) run(stack map[string]any, dest any) (any, error) {
 		if s.call == nil {
 			return nil, nil
 		}
-		out, err := s.call.invoke(slots, frame, ifaces, stack, dest)
+		out, err := s.call.invoke(ctx, slots, frame, ifaces, stack, dest)
 		if err != nil {
 			return nil, err
 		}
@@ -809,16 +1026,21 @@ func firstNonErr(out []reflect.Value, errIdx int) reflect.Value {
 
 // invoke evaluates the arguments and calls the func, returning the raw
 // result list. A non-nil trailing error stops the program.
-func (c *vmCall) invoke(slots, frame []reflect.Value, ifaces []ifacePair, stack map[string]any, dest any) ([]reflect.Value, error) {
+func (c *vmCall) invoke(ctx context.Context, slots, frame []reflect.Value, ifaces []ifacePair, stack map[string]any, dest any) ([]reflect.Value, error) {
 	args := frame[c.off : c.off+len(c.args)]
 	for i, a := range c.args {
-		v, err := a.get(slots, frame, ifaces, stack, dest)
+		v, err := a.get(ctx, slots, frame, ifaces, stack, dest)
 		if err != nil {
 			return nil, err
 		}
 		args[i] = v
 	}
-	out := c.fn.Call(args)
+	var out []reflect.Value
+	if c.spread {
+		out = c.fn.CallSlice(args)
+	} else {
+		out = c.fn.Call(args)
+	}
 	if c.errIdx >= 0 {
 		if e := out[c.errIdx]; !e.IsNil() {
 			return nil, e.Interface().(error)
@@ -828,7 +1050,7 @@ func (c *vmCall) invoke(slots, frame []reflect.Value, ifaces []ifacePair, stack 
 }
 
 // get resolves one argument for this call.
-func (a *vmArg) get(slots, frame []reflect.Value, ifaces []ifacePair, stack map[string]any, dest any) (reflect.Value, error) {
+func (a *vmArg) get(ctx context.Context, slots, frame []reflect.Value, ifaces []ifacePair, stack map[string]any, dest any) (reflect.Value, error) {
 	switch a.kind {
 	case vaConst:
 		return a.val, nil
@@ -838,14 +1060,16 @@ func (a *vmArg) get(slots, frame []reflect.Value, ifaces []ifacePair, stack map[
 			return reflect.Zero(a.typ), nil
 		}
 		return v, nil
+	case vaCtx:
+		return reflect.ValueOf(ctx), nil
 	case vaCall:
-		out, err := a.sub.invoke(slots, frame, ifaces, stack, dest)
+		out, err := a.sub.invoke(ctx, slots, frame, ifaces, stack, dest)
 		if err != nil {
 			return reflect.Value{}, err
 		}
 		return firstNonErr(out, a.sub.errIdx), nil
 	case vaField:
-		v, err := a.src.get(slots, frame, ifaces, stack, dest)
+		v, err := a.src.get(ctx, slots, frame, ifaces, stack, dest)
 		if err != nil {
 			return reflect.Value{}, err
 		}

@@ -35,7 +35,7 @@ type Compiler struct {
 // stands. Anything longer, or anything with a chained or nested call,
 // compiles to the multi-statement VM in vm.go, which is reflect only.
 func (c *Compiler) Compile(prog *program) (CompiledFunc, error) {
-	if call, ok := prog.flatCall(); ok {
+	if call, ok := prog.flatCall(); ok && c.plainBinding(call.path[0]) {
 		s, err := c.compileStatement(call)
 		if err != nil {
 			return nil, err
@@ -53,6 +53,26 @@ func (c *Compiler) Compile(prog *program) (CompiledFunc, error) {
 		return CompiledFunc(jp.run), nil
 	}
 	return CompiledFunc(p.run), nil
+}
+
+// plainBinding reports whether name is a binding the single-statement
+// path can call: not variadic, and with no context.Context parameter,
+// both of which only the program compiler knows how to fill.
+func (c *Compiler) plainBinding(name string) bool {
+	b, ok := c.bindings[name]
+	if !ok {
+		return true // let compileStatement report the unknown name
+	}
+	ft := b.rv.Type()
+	if ft.IsVariadic() {
+		return false
+	}
+	for i := 0; i < ft.NumIn(); i++ {
+		if ft.In(i) == ctxType {
+			return false
+		}
+	}
+	return true
 }
 
 // compileStatement builds the single-call Statement: a prebuilt

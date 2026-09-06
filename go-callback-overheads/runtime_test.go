@@ -2,6 +2,7 @@ package callbacks
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -185,8 +186,8 @@ func TestJITMatchesReflect(t *testing.T) {
 			t.Fatalf("%s: statement did not JIT", name)
 		}
 
-		fastRes, fastErr := s.fast(tc.stack, nil)
-		slowRes, slowErr := s.call(tc.stack, nil)
+		fastRes, fastErr := s.fast(context.Background(), tc.stack, nil)
+		slowRes, slowErr := s.call(context.Background(), tc.stack, nil)
 		if (fastErr == nil) != (slowErr == nil) {
 			t.Fatalf("%s: err = %v (jit) vs %v (reflect)", name, fastErr, slowErr)
 		}
@@ -253,11 +254,11 @@ func TestJITInterfaceFromStack(t *testing.T) {
 		if tc.body != nil {
 			stack["body"] = tc.body
 		}
-		fastReq, fastErr := s.fast(stack, nil)
+		fastReq, fastErr := s.fast(context.Background(), stack, nil)
 		if tc.body != nil {
 			stack["body"] = strings.NewReader("payload")
 		}
-		slowReq, slowErr := s.call(stack, nil)
+		slowReq, slowErr := s.call(context.Background(), stack, nil)
 		if fastErr != nil || slowErr != nil {
 			t.Fatalf("%s: %v (jit) %v (reflect)", tc.name, fastErr, slowErr)
 		}
@@ -292,7 +293,7 @@ func TestJITErrorOnlyShape(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	res, err := s.fast(map[string]any{"w": &buf, "v": "payload"}, nil)
+	res, err := s.fast(context.Background(), map[string]any{"w": &buf, "v": "payload"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +307,7 @@ func TestJITErrorOnlyShape(t *testing.T) {
 		t.Errorf("value = %v, want payload", gotV)
 	}
 
-	if _, err := s.fast(map[string]any{"w": &buf}, nil); err == nil {
+	if _, err := s.fast(context.Background(), map[string]any{"w": &buf}, nil); err == nil {
 		t.Fatal("expected the binding error to come back through the JIT")
 	}
 }

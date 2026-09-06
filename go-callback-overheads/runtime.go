@@ -1,6 +1,7 @@
 package callbacks
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -16,7 +17,7 @@ import (
 //
 // It is a defined type rather than a plain func so that Exec and Scan
 // can hang off it as generic methods.
-type CompiledFunc func(stack map[string]any, dest any) (any, error)
+type CompiledFunc func(ctx context.Context, stack map[string]any, dest any) (any, error)
 
 // Runtime holds the bindings and the expression -> func cache. Create
 // one with NewRuntime, register functions with Bind, then use Eval, or
@@ -119,13 +120,16 @@ func (e *PanicError) Error() string {
 // guard installs the panic boundary. It covers both tiers, because it
 // wraps what Compile returns rather than either implementation.
 func guard(fn CompiledFunc) CompiledFunc {
-	return func(stack map[string]any, dest any) (res any, err error) {
+	return func(ctx context.Context, stack map[string]any, dest any) (res any, err error) {
+		if ctx == nil {
+			ctx = context.Background()
+		}
 		defer func() {
 			if r := recover(); r != nil {
 				res, err = nil, &PanicError{Value: r, Stack: debug.Stack()}
 			}
 		}()
-		return fn(stack, dest)
+		return fn(ctx, stack, dest)
 	}
 }
 
@@ -209,12 +213,30 @@ func (r *Runtime) Eval[T any](stmt string, stack map[string]any) (T, error) {
 	return fn.Exec[T](stack)
 }
 
+// EvalContext is Eval with an execution context, which auto-fills any
+// context.Context parameter of the bindings the program calls.
+func (r *Runtime) EvalContext[T any](ctx context.Context, stmt string, stack map[string]any) (T, error) {
+	fn, err := r.Compile(stmt)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return fn.ExecContext[T](ctx, stack)
+}
+
 // Exec runs a compiled statement against a stack and returns the result
 // as T. Like Eval, T appears only in the result and is instantiated
 // explicitly.
 func (fn CompiledFunc) Exec[T any](stack map[string]any) (T, error) {
+	return fn.ExecContext[T](context.Background(), stack)
+}
+
+// ExecContext is Exec with an execution context. A binding parameter of
+// type context.Context the program does not pass explicitly receives
+// this context rather than a zero value.
+func (fn CompiledFunc) ExecContext[T any](ctx context.Context, stack map[string]any) (T, error) {
 	var zero T
-	out, err := fn(stack, nil)
+	out, err := fn(ctx, stack, nil)
 	if err != nil || out == nil {
 		return zero, err
 	}
@@ -240,7 +262,19 @@ func (fn CompiledFunc) Scan[T any](dest *T, stack map[string]any) error {
 	if dest == nil {
 		return fmt.Errorf("scan: dest must be a non-nil *%T", *new(T))
 	}
-	res, err := fn(stack, dest)
+	return scanInto(dest, fn, context.Background(), stack)
+}
+
+// ScanContext is Scan with an execution context; see ExecContext.
+func (fn CompiledFunc) ScanContext[T any](ctx context.Context, dest *T, stack map[string]any) error {
+	if dest == nil {
+		return fmt.Errorf("scan: dest must be a non-nil *%T", *new(T))
+	}
+	return scanInto(dest, fn, ctx, stack)
+}
+
+func scanInto(dest any, fn CompiledFunc, ctx context.Context, stack map[string]any) error {
+	res, err := fn(ctx, stack, dest)
 	if err != nil {
 		return err
 	}

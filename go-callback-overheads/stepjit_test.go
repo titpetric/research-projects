@@ -2,6 +2,7 @@ package callbacks
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -125,12 +126,12 @@ func TestStepJITMatchesReflect(t *testing.T) {
 
 		seen = nil
 		var jitBuf bytes.Buffer
-		jitRes, jitErr := jit(stack, &jitBuf)
+		jitRes, jitErr := jit(context.Background(), stack, &jitBuf)
 		jitSeen := fmt.Sprintf("%v", seen)
 
 		seen = nil
 		var slowBuf bytes.Buffer
-		slowRes, slowErr := slow(stack, &slowBuf)
+		slowRes, slowErr := slow(context.Background(), stack, &slowBuf)
 		slowSeen := fmt.Sprintf("%v", seen)
 
 		switch {
@@ -171,8 +172,8 @@ func TestStepJITErrorsMatch(t *testing.T) {
 	} {
 		jit, slow := compilePair(t, rt, tc.src)
 		var a, b bytes.Buffer
-		_, jitErr := jit(tc.stack, &a)
-		_, slowErr := slow(tc.stack, &b)
+		_, jitErr := jit(context.Background(), tc.stack, &a)
+		_, slowErr := slow(context.Background(), tc.stack, &b)
 		if jitErr == nil || slowErr == nil {
 			t.Errorf("%s: expected errors, got %v (jit) %v (reflect)", name, jitErr, slowErr)
 			continue
@@ -208,10 +209,10 @@ func TestStepJITFrameSurvivesGC(t *testing.T) {
 	`
 	jit, slow := compilePair(t, rt, src)
 	var a, b bytes.Buffer
-	if _, err := jit(nil, &a); err != nil {
+	if _, err := jit(context.Background(), nil, &a); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := slow(nil, &b); err != nil {
+	if _, err := slow(context.Background(), nil, &b); err != nil {
 		t.Fatal(err)
 	}
 	if a.String() != b.String() {
@@ -250,7 +251,7 @@ func TestStepJITReassignedSlotIsCopied(t *testing.T) {
 	}{{"jit", jit}, {"reflect", slow}} {
 		kept = nil
 		var dest bytes.Buffer
-		if _, err := tc.fn(nil, &dest); err != nil {
+		if _, err := tc.fn(context.Background(), nil, &dest); err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
 		if kept != "/a" {
@@ -500,10 +501,10 @@ func TestReadCountSeesFieldReads(t *testing.T) {
 
 	jit, slow := compilePair(t, rt, src)
 	var a, b bytes.Buffer
-	if _, err := jit(nil, &a); err != nil {
+	if _, err := jit(context.Background(), nil, &a); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := slow(nil, &b); err != nil {
+	if _, err := slow(context.Background(), nil, &b); err != nil {
 		t.Fatal(err)
 	}
 	if a.String() != b.String() {

@@ -1,6 +1,7 @@
 package callbacks
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -194,18 +195,18 @@ func itabFor(ct, it reflect.Type) (unsafe.Pointer, bool) {
 // returns the value in that class. f is the frame, nil for a program
 // that needs no slots.
 type (
-	nodeP func(f unsafe.Pointer, stack map[string]any, dest any) (unsafe.Pointer, error)
-	nodeS func(f unsafe.Pointer, stack map[string]any, dest any) (string, error)
-	nodeI func(f unsafe.Pointer, stack map[string]any, dest any) (ifacePair, error)
-	nodeL func(f unsafe.Pointer, stack map[string]any, dest any) (sliceHdr, error)
-	nodeE func(f unsafe.Pointer, stack map[string]any, dest any) error
+	nodeP func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) (unsafe.Pointer, error)
+	nodeS func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) (string, error)
+	nodeI func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) (ifacePair, error)
+	nodeL func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) (sliceHdr, error)
+	nodeE func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) error
 
 	// nodeN carries every integer and bool class as the bits of its own
 	// width, zero-extended. One closure type covers all of them because
 	// the exact Go type is only needed where the call is made, and the
 	// shape case there casts back. nodeF does the same for floats.
-	nodeN func(f unsafe.Pointer, stack map[string]any, dest any) (uint64, error)
-	nodeF func(f unsafe.Pointer, stack map[string]any, dest any) (float64, error)
+	nodeN func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) (uint64, error)
+	nodeF func(f unsafe.Pointer, ctx context.Context, stack map[string]any, dest any) (float64, error)
 )
 
 // node is one compiled expression. Exactly one closure is set, named by
@@ -311,13 +312,13 @@ type jitProgram struct {
 	retOff  uintptr
 }
 
-func (p *jitProgram) run(stack map[string]any, dest any) (any, error) {
+func (p *jitProgram) run(ctx context.Context, stack map[string]any, dest any) (any, error) {
 	var f unsafe.Pointer
 	if p.frameRT != nil {
 		f = unsafeNew(p.frameRT)
 	}
 	for _, stmt := range p.stmts {
-		if err := stmt(f, stack, dest); err != nil {
+		if err := stmt(f, ctx, stack, dest); err != nil {
 			return nil, err
 		}
 	}
@@ -362,8 +363,8 @@ type (
 // the cast needs the exact type, but nothing else does.
 func nPE[T any](fptr unsafe.Pointer, a0 nodeN, conv func(uint64) T) node {
 	f := castFn[func(T) (unsafe.Pointer, ifacePair)](fptr)
-	return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-		n, err := a0(fr, st, d)
+	return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+		n, err := a0(fr, ctx, st, d)
 		if err != nil {
 			return nil, err
 		}
@@ -377,8 +378,8 @@ func nPE[T any](fptr unsafe.Pointer, a0 nodeN, conv func(uint64) T) node {
 
 func nE[T any](fptr unsafe.Pointer, a0 nodeN, conv func(uint64) T) node {
 	f := castFn[func(T) ifacePair](fptr)
-	return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-		n, err := a0(fr, st, d)
+	return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+		n, err := a0(fr, ctx, st, d)
 		if err != nil {
 			return err
 		}
@@ -388,8 +389,8 @@ func nE[T any](fptr unsafe.Pointer, a0 nodeN, conv func(uint64) T) node {
 
 func fPE[T any](fptr unsafe.Pointer, a0 nodeF, conv func(float64) T) node {
 	f := castFn[func(T) (unsafe.Pointer, ifacePair)](fptr)
-	return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-		v, err := a0(fr, st, d)
+	return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+		v, err := a0(fr, ctx, st, d)
 		if err != nil {
 			return nil, err
 		}
@@ -403,8 +404,8 @@ func fPE[T any](fptr unsafe.Pointer, a0 nodeF, conv func(float64) T) node {
 
 func fE[T any](fptr unsafe.Pointer, a0 nodeF, conv func(float64) T) node {
 	f := castFn[func(T) ifacePair](fptr)
-	return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-		v, err := a0(fr, st, d)
+	return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+		v, err := a0(fr, ctx, st, d)
 		if err != nil {
 			return err
 		}
@@ -416,8 +417,8 @@ func fE[T any](fptr unsafe.Pointer, a0 nodeF, conv func(float64) T) node {
 // method has.
 func pN[T any](fptr unsafe.Pointer, a0 nodeP, cl layout, up func(T) uint64) node {
 	f := castFn[func(unsafe.Pointer) T](fptr)
-	return node{class: cl, N: func(fr unsafe.Pointer, st map[string]any, d any) (uint64, error) {
-		p, err := a0(fr, st, d)
+	return node{class: cl, N: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (uint64, error) {
+		p, err := a0(fr, ctx, st, d)
 		if err != nil {
 			return 0, err
 		}
@@ -427,8 +428,8 @@ func pN[T any](fptr unsafe.Pointer, a0 nodeP, cl layout, up func(T) uint64) node
 
 func pF[T any](fptr unsafe.Pointer, a0 nodeP, cl layout, up func(T) float64) node {
 	f := castFn[func(unsafe.Pointer) T](fptr)
-	return node{class: cl, F: func(fr unsafe.Pointer, st map[string]any, d any) (float64, error) {
-		p, err := a0(fr, st, d)
+	return node{class: cl, F: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (float64, error) {
+		p, err := a0(fr, ctx, st, d)
 		if err != nil {
 			return 0, err
 		}
@@ -530,11 +531,11 @@ func ptrScalarCall(fptr unsafe.Pointer, out layout, a node) (node, bool) {
 
 // getterFor adapts a scalar node into a typed getter, converting from
 // the width-erased carriers back to the exact Go type T.
-func getterFor[T any](a node, fromN func(uint64) T, fromF func(float64) T) func(unsafe.Pointer, map[string]any, any) (T, error) {
+func getterFor[T any](a node, fromN func(uint64) T, fromF func(float64) T) func(unsafe.Pointer, context.Context, map[string]any, any) (T, error) {
 	if a.class.float() {
 		f := a.F
-		return func(fr unsafe.Pointer, st map[string]any, d any) (T, error) {
-			v, err := f(fr, st, d)
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (T, error) {
+			v, err := f(fr, ctx, st, d)
 			if err != nil {
 				var zero T
 				return zero, err
@@ -543,8 +544,8 @@ func getterFor[T any](a node, fromN func(uint64) T, fromF func(float64) T) func(
 		}
 	}
 	f := a.N
-	return func(fr unsafe.Pointer, st map[string]any, d any) (T, error) {
-		v, err := f(fr, st, d)
+	return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (T, error) {
+		v, err := f(fr, ctx, st, d)
 		if err != nil {
 			var zero T
 			return zero, err
@@ -558,16 +559,16 @@ func getterFor[T any](a node, fromN func(uint64) T, fromF func(float64) T) func(
 // pointer. res is the result half of the shape key. One generic body
 // covers every width; the per-width dispatch below only bakes the
 // conversion.
-func mixed2[T any](fptr unsafe.Pointer, first layout, res string, a0 node, get func(unsafe.Pointer, map[string]any, any) (T, error)) (node, bool) {
+func mixed2[T any](fptr unsafe.Pointer, first layout, res string, a0 node, get func(unsafe.Pointer, context.Context, map[string]any, any) (T, error)) (node, bool) {
 	switch {
 	case first == lStr && res == "PE":
 		f, s0 := castFn[func(string, T) (unsafe.Pointer, ifacePair)](fptr), a0.S
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			x0, err := s0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			x0, err := s0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
-			x1, err := get(fr, st, d)
+			x1, err := get(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -579,12 +580,12 @@ func mixed2[T any](fptr unsafe.Pointer, first layout, res string, a0 node, get f
 		}}, true
 	case first == lStr && res == "E":
 		f, s0 := castFn[func(string, T) ifacePair](fptr), a0.S
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			x0, err := s0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			x0, err := s0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
-			x1, err := get(fr, st, d)
+			x1, err := get(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -592,12 +593,12 @@ func mixed2[T any](fptr unsafe.Pointer, first layout, res string, a0 node, get f
 		}}, true
 	case first == lPtr && res == "PE":
 		f, p0 := castFn[func(unsafe.Pointer, T) (unsafe.Pointer, ifacePair)](fptr), a0.P
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			x0, err := p0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			x0, err := p0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
-			x1, err := get(fr, st, d)
+			x1, err := get(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -609,12 +610,12 @@ func mixed2[T any](fptr unsafe.Pointer, first layout, res string, a0 node, get f
 		}}, true
 	case first == lPtr && res == "E":
 		f, p0 := castFn[func(unsafe.Pointer, T) ifacePair](fptr), a0.P
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			x0, err := p0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			x0, err := p0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
-			x1, err := get(fr, st, d)
+			x1, err := get(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -679,8 +680,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 	switch key {
 	case "P_L":
 		f, a0 := castFn[stP_L](fptr), a[0].P
-		return node{class: lSlice, L: func(fr unsafe.Pointer, st map[string]any, d any) (sliceHdr, error) {
-			p, err := a0(fr, st, d)
+		return node{class: lSlice, L: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (sliceHdr, error) {
+			p, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return sliceHdr{}, err
 			}
@@ -689,8 +690,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "I_P":
 		f, a0 := castFn[stI_P](fptr), a[0].I
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			i0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			i0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -699,12 +700,12 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "PI_E":
 		f, a0, a1 := castFn[stPI_E](fptr), a[0].P, a[1].I
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			p0, err := a0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
-			i1, err := a1(fr, st, d)
+			i1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -713,16 +714,16 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "SSI_PE":
 		f, a0, a1, a2 := castFn[stSSI_PE](fptr), a[0].S, a[1].S, a[2].I
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			s0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
-			s1, err := a1(fr, st, d)
+			s1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
-			i2, err := a2(fr, st, d)
+			i2, err := a2(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -735,12 +736,12 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "SS_PE":
 		f, a0, a1 := castFn[stSS_PE](fptr), a[0].S, a[1].S
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			s0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
-			s1, err := a1(fr, st, d)
+			s1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -753,8 +754,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "S_PE":
 		f, a0 := castFn[stS_PE](fptr), a[0].S
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			s0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -767,8 +768,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "I_PE":
 		f, a0 := castFn[stI_PE](fptr), a[0].I
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			i0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			i0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -781,8 +782,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "S_P":
 		f, a0 := castFn[stS_P](fptr), a[0].S
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			s0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			s0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -791,8 +792,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "P_P":
 		f, a0 := castFn[stP_P](fptr), a[0].P
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			p0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -801,8 +802,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "P_S":
 		f, a0 := castFn[stP_S](fptr), a[0].P
-		return node{class: lStr, S: func(fr unsafe.Pointer, st map[string]any, d any) (string, error) {
-			p0, err := a0(fr, st, d)
+		return node{class: lStr, S: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (string, error) {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return "", err
 			}
@@ -811,8 +812,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "P_I":
 		f, a0 := castFn[stP_I](fptr), a[0].P
-		return node{class: lIface, I: func(fr unsafe.Pointer, st map[string]any, d any) (ifacePair, error) {
-			p0, err := a0(fr, st, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (ifacePair, error) {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -821,8 +822,8 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "P_E":
 		f, a0 := castFn[stP_E](fptr), a[0].P
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			p0, err := a0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -831,12 +832,12 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "PP_PE":
 		f, a0, a1 := castFn[stPP_PE](fptr), a[0].P, a[1].P
-		return node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			p0, err := a0(fr, st, d)
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
-			p1, err := a1(fr, st, d)
+			p1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
@@ -849,12 +850,12 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "PP_E":
 		f, a0, a1 := castFn[stPP_E](fptr), a[0].P, a[1].P
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			p0, err := a0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			p0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
-			p1, err := a1(fr, st, d)
+			p1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -863,12 +864,12 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "II_E":
 		f, a0, a1 := castFn[stII_E](fptr), a[0].I, a[1].I
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			i0, err := a0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			i0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
-			i1, err := a1(fr, st, d)
+			i1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -877,12 +878,12 @@ func callNode(key string, fptr unsafe.Pointer, a []node) (node, bool) {
 
 	case "SS_E":
 		f, a0, a1 := castFn[stSS_E](fptr), a[0].S, a[1].S
-		return node{class: lNone, E: func(fr unsafe.Pointer, st map[string]any, d any) error {
-			s0, err := a0(fr, st, d)
+		return node{class: lNone, E: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			s0, err := a0(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
-			s1, err := a1(fr, st, d)
+			s1, err := a1(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -988,6 +989,9 @@ type plannedStmt struct {
 
 	// lit is a literal assignment, which has no call to compile.
 	lit reflect.Value
+
+	// fieldSet is a field assignment, compiled to a typed store.
+	fieldSet *vmFieldSet
 }
 
 // jitPlan is everything planInline works out for the compiler.
@@ -1029,6 +1033,10 @@ func planInline(p *vmProgram) (*jitPlan, error) {
 			retSlot = s.retArg.slot
 			continue
 		}
+		if s.fieldSet != nil {
+			stmts = append(stmts, plannedStmt{fieldSet: s.fieldSet, out: -1})
+			continue
+		}
 		if s.lit.IsValid() {
 			out := -1
 			if len(s.out) > 0 {
@@ -1057,6 +1065,12 @@ func planInline(p *vmProgram) (*jitPlan, error) {
 	for _, s := range stmts {
 		if s.call != nil {
 			countReads(s.call, reads)
+		}
+		if s.fieldSet != nil {
+			reads[s.fieldSet.base]++
+			if sub := s.fieldSet.val.sub; sub != nil {
+				countReads(sub, reads)
+			}
 		}
 	}
 
@@ -1095,6 +1109,16 @@ func planInline(p *vmProgram) (*jitPlan, error) {
 		writes[in.slot]++
 	}
 	for _, s := range stmts {
+		if s.fieldSet != nil {
+			live[s.fieldSet.base] = true
+			// Writing a field of a struct held by value mutates the
+			// slot an aliased interface may point at, so it counts as
+			// a write and the aliasing falls back to a copy.
+			if t := p.slotTypes[s.fieldSet.base]; t != nil && t.Kind() != reflect.Pointer {
+				writes[s.fieldSet.base]++
+			}
+			continue
+		}
 		if s.out >= 0 {
 			live[s.out] = true
 			writes[s.out]++
@@ -1163,6 +1187,9 @@ func subCall(a *vmArg, splices map[*vmArg]*vmCall) *vmCall {
 
 // stmtNode compiles one statement into the closure the program runs.
 func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
+	if s.fieldSet != nil {
+		return c.fieldSetNode(s.fieldSet)
+	}
 	var n node
 	if s.lit.IsValid() {
 		field, ok := c.slotOf[s.out]
@@ -1204,8 +1231,8 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		cl := n.class
 		if cl.float() {
 			f := n.F
-			return func(fr unsafe.Pointer, st map[string]any, d any) error {
-				v, err := f(fr, st, d)
+			return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+				v, err := f(fr, ctx, st, d)
 				if err != nil {
 					return err
 				}
@@ -1214,8 +1241,8 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 			}, nil
 		}
 		f := n.N
-		return func(fr unsafe.Pointer, st map[string]any, d any) error {
-			v, err := f(fr, st, d)
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -1226,8 +1253,8 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 	switch n.class {
 	case lPtr:
 		f := n.P
-		return func(fr unsafe.Pointer, st map[string]any, d any) error {
-			v, err := f(fr, st, d)
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -1236,8 +1263,8 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		}, nil
 	case lSlice:
 		f := n.L
-		return func(fr unsafe.Pointer, st map[string]any, d any) error {
-			v, err := f(fr, st, d)
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -1246,8 +1273,8 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		}, nil
 	case lStr:
 		f := n.S
-		return func(fr unsafe.Pointer, st map[string]any, d any) error {
-			v, err := f(fr, st, d)
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -1256,8 +1283,8 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		}, nil
 	case lIface:
 		f := n.I
-		return func(fr unsafe.Pointer, st map[string]any, d any) error {
-			v, err := f(fr, st, d)
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
 			if err != nil {
 				return err
 			}
@@ -1266,6 +1293,149 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		}, nil
 	}
 	return nil, fmt.Errorf("a result of class %s cannot be stored", n.class)
+}
+
+// fieldSetNode compiles req.Method = value to a typed store at a
+// compile-time offset. Only the single field of a pointer to a struct
+// is in the table; a value-struct base or a deeper chain stays on the
+// reflect evaluator.
+func (c *jitCompiler) fieldSetNode(fs *vmFieldSet) (nodeE, error) {
+	field, ok := c.slotOf[fs.base]
+	if !ok {
+		return nil, fmt.Errorf("a field target has no slot")
+	}
+	bt := c.types[field]
+	if bt.Kind() != reflect.Pointer || bt.Elem().Kind() != reflect.Struct {
+		return nil, fmt.Errorf("a field of a %s is not in the table", bt)
+	}
+	if len(fs.steps) != 1 || !fs.steps[0].deref || len(fs.steps[0].index) != 1 {
+		return nil, fmt.Errorf("only a single field of a pointer to a struct is in the table")
+	}
+	sf := bt.Elem().Field(fs.steps[0].index[0])
+	cl := layoutOf(sf.Type)
+	if cl == lBad {
+		return nil, fmt.Errorf("field %s of type %s has no layout class", sf.Name, sf.Type)
+	}
+
+	var val node
+	switch fs.val.kind {
+	case vaConst:
+		v, err := constNode(cl, fs.val.val)
+		if err != nil {
+			return nil, err
+		}
+		val = v
+	case vaCall:
+		v, err := c.exprNode(fs.val.sub)
+		if err != nil {
+			return nil, err
+		}
+		if v.class != cl {
+			return nil, fmt.Errorf("a %s result cannot fill a %s field", v.class, cl)
+		}
+		val = v
+	default:
+		return nil, fmt.Errorf("this field value is not in the table")
+	}
+
+	baseOff, fieldOff, name, srcType := c.offs[field], sf.Offset, fs.field, bt
+	target := func(fr unsafe.Pointer) (unsafe.Pointer, error) {
+		base := *(*unsafe.Pointer)(unsafe.Add(fr, baseOff))
+		if base == nil {
+			return nil, fmt.Errorf("exec: %s: field write on a nil %s", name, srcType)
+		}
+		return unsafe.Add(base, fieldOff), nil
+	}
+
+	if cl.scalar() {
+		if cl.float() {
+			f := val.F
+			return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+				v, err := f(fr, ctx, st, d)
+				if err != nil {
+					return err
+				}
+				at, err := target(fr)
+				if err != nil {
+					return err
+				}
+				storeF(cl, at, v)
+				return nil
+			}, nil
+		}
+		f := val.N
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			at, err := target(fr)
+			if err != nil {
+				return err
+			}
+			storeN(cl, at, v)
+			return nil
+		}, nil
+	}
+	switch cl {
+	case lStr:
+		f := val.S
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			at, err := target(fr)
+			if err != nil {
+				return err
+			}
+			*(*string)(at) = v
+			return nil
+		}, nil
+	case lPtr:
+		f := val.P
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			at, err := target(fr)
+			if err != nil {
+				return err
+			}
+			*(*unsafe.Pointer)(at) = v
+			return nil
+		}, nil
+	case lSlice:
+		f := val.L
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			at, err := target(fr)
+			if err != nil {
+				return err
+			}
+			*(*sliceHdr)(at) = v
+			return nil
+		}, nil
+	case lIface:
+		f := val.I
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			v, err := f(fr, ctx, st, d)
+			if err != nil {
+				return err
+			}
+			at, err := target(fr)
+			if err != nil {
+				return err
+			}
+			*(*ifacePair)(at) = v
+			return nil
+		}, nil
+	}
+	return nil, fmt.Errorf("a %s field cannot be stored", cl)
 }
 
 // dropped wraps a node whose value nothing binds, reporting a class
@@ -1283,26 +1453,44 @@ func dropNode(n node) nodeE {
 	if n.class.scalar() {
 		if n.class.float() {
 			f := n.F
-			return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+			return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+				_, err := f(fr, ctx, st, d)
+				return err
+			}
 		}
 		f := n.N
-		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			_, err := f(fr, ctx, st, d)
+			return err
+		}
 	}
 	switch n.class {
 	case lNone:
 		return n.E
 	case lPtr:
 		f := n.P
-		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			_, err := f(fr, ctx, st, d)
+			return err
+		}
 	case lSlice:
 		f := n.L
-		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			_, err := f(fr, ctx, st, d)
+			return err
+		}
 	case lStr:
 		f := n.S
-		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			_, err := f(fr, ctx, st, d)
+			return err
+		}
 	case lIface:
 		f := n.I
-		return func(fr unsafe.Pointer, st map[string]any, d any) error { _, err := f(fr, st, d); return err }
+		return func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) error {
+			_, err := f(fr, ctx, st, d)
+			return err
+		}
 	}
 	return nil
 }
@@ -1310,6 +1498,9 @@ func dropNode(n node) nodeE {
 // exprNode compiles one call and its arguments.
 func (c *jitCompiler) exprNode(call *vmCall) (node, error) {
 	ft := call.fn.Type()
+	if ft.IsVariadic() {
+		return node{}, fmt.Errorf("%s: a variadic call is not in the table", call.name)
+	}
 	args := make([]node, ft.NumIn())
 	key := ""
 	for i := 0; i < ft.NumIn(); i++ {
@@ -1388,7 +1579,7 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 			if layoutOf(st) == lPtr {
 				// Stored directly: the data word is the pointer itself,
 				// read out of the slot, so nothing aliases the frame.
-				return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+				return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (ifacePair, error) {
 					return ifacePair{tab: tab, data: *(*unsafe.Pointer)(unsafe.Add(fr, off))}, nil
 				}}, nil
 			}
@@ -1399,7 +1590,7 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 			// written more than once, and any scalar, is copied
 			// instead, which is what the Go compiler does anyway.
 			if c.writes[a.slot] == 1 && !layoutOf(st).scalar() {
-				return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+				return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (ifacePair, error) {
 					return ifacePair{tab: tab, data: unsafe.Add(fr, off)}, nil
 				}}, nil
 			}
@@ -1412,6 +1603,13 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 
 	case vaConst:
 		return constNode(cl, a.val)
+
+	case vaCtx:
+		// The execution context is already the exact interface type the
+		// parameter wants, so the two words copy straight through.
+		return node{class: lIface, I: func(_ unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (ifacePair, error) {
+			return *(*ifacePair)(unsafe.Pointer(&ctx)), nil
+		}}, nil
 
 	case vaField:
 		return c.fieldNode(a, pt, cl)
@@ -1454,8 +1652,8 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 	}
 	sp, off, name := src.P, sf.Offset, sf.Name
 
-	load := func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-		p, err := sp(fr, st, d)
+	load := func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+		p, err := sp(fr, ctx, st, d)
 		if err != nil {
 			return nil, err
 		}
@@ -1468,16 +1666,16 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 	var out node
 	if fcl.scalar() {
 		if fcl.float() {
-			out = node{class: fcl, F: func(fr unsafe.Pointer, st map[string]any, d any) (float64, error) {
-				at, err := load(fr, st, d)
+			out = node{class: fcl, F: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (float64, error) {
+				at, err := load(fr, ctx, st, d)
 				if err != nil {
 					return 0, err
 				}
 				return loadF(fcl, at), nil
 			}}
 		} else {
-			out = node{class: fcl, N: func(fr unsafe.Pointer, st map[string]any, d any) (uint64, error) {
-				at, err := load(fr, st, d)
+			out = node{class: fcl, N: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (uint64, error) {
+				at, err := load(fr, ctx, st, d)
 				if err != nil {
 					return 0, err
 				}
@@ -1487,32 +1685,32 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 	}
 	switch fcl {
 	case lPtr:
-		out = node{class: lPtr, P: func(fr unsafe.Pointer, st map[string]any, d any) (unsafe.Pointer, error) {
-			at, err := load(fr, st, d)
+		out = node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (unsafe.Pointer, error) {
+			at, err := load(fr, ctx, st, d)
 			if err != nil {
 				return nil, err
 			}
 			return *(*unsafe.Pointer)(at), nil
 		}}
 	case lStr:
-		out = node{class: lStr, S: func(fr unsafe.Pointer, st map[string]any, d any) (string, error) {
-			at, err := load(fr, st, d)
+		out = node{class: lStr, S: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (string, error) {
+			at, err := load(fr, ctx, st, d)
 			if err != nil {
 				return "", err
 			}
 			return *(*string)(at), nil
 		}}
 	case lSlice:
-		out = node{class: lSlice, L: func(fr unsafe.Pointer, st map[string]any, d any) (sliceHdr, error) {
-			at, err := load(fr, st, d)
+		out = node{class: lSlice, L: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (sliceHdr, error) {
+			at, err := load(fr, ctx, st, d)
 			if err != nil {
 				return sliceHdr{}, err
 			}
 			return *(*sliceHdr)(at), nil
 		}}
 	case lIface:
-		out = node{class: lIface, I: func(fr unsafe.Pointer, st map[string]any, d any) (ifacePair, error) {
-			at, err := load(fr, st, d)
+		out = node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (ifacePair, error) {
+			at, err := load(fr, ctx, st, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1546,8 +1744,8 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 	switch sub.class {
 	case lPtr:
 		f := sub.P
-		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
-			v, err := f(fr, s, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1555,8 +1753,8 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 		}}, nil
 	case lSlice:
 		f := sub.L
-		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
-			v, err := f(fr, s, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1564,8 +1762,8 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 		}}, nil
 	case lStr:
 		f := sub.S
-		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
-			v, err := f(fr, s, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1582,8 +1780,8 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 func scalarIface(sub node, tab unsafe.Pointer) (node, error) {
 	mk := func(box func(uint64) unsafe.Pointer) (node, error) {
 		f := sub.N
-		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
-			n, err := f(fr, s, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
+			n, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1611,8 +1809,8 @@ func scalarIface(sub node, tab unsafe.Pointer) (node, error) {
 		return mk(func(n uint64) unsafe.Pointer { v := n; return unsafe.Pointer(&v) })
 	case lF32:
 		f := sub.F
-		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
-			x, err := f(fr, s, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
+			x, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1621,8 +1819,8 @@ func scalarIface(sub node, tab unsafe.Pointer) (node, error) {
 		}}, nil
 	case lF64:
 		f := sub.F
-		return node{class: lIface, I: func(fr unsafe.Pointer, s map[string]any, d any) (ifacePair, error) {
-			v, err := f(fr, s, d)
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
+			v, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
@@ -1635,29 +1833,29 @@ func scalarIface(sub node, tab unsafe.Pointer) (node, error) {
 func slotNode(cl layout, off uintptr) node {
 	if cl.scalar() {
 		if cl.float() {
-			return node{class: cl, F: func(fr unsafe.Pointer, _ map[string]any, _ any) (float64, error) {
+			return node{class: cl, F: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (float64, error) {
 				return loadF(cl, unsafe.Add(fr, off)), nil
 			}}
 		}
-		return node{class: cl, N: func(fr unsafe.Pointer, _ map[string]any, _ any) (uint64, error) {
+		return node{class: cl, N: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (uint64, error) {
 			return loadN(cl, unsafe.Add(fr, off)), nil
 		}}
 	}
 	switch cl {
 	case lPtr:
-		return node{class: lPtr, P: func(fr unsafe.Pointer, _ map[string]any, _ any) (unsafe.Pointer, error) {
+		return node{class: lPtr, P: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (unsafe.Pointer, error) {
 			return *(*unsafe.Pointer)(unsafe.Add(fr, off)), nil
 		}}
 	case lSlice:
-		return node{class: lSlice, L: func(fr unsafe.Pointer, _ map[string]any, _ any) (sliceHdr, error) {
+		return node{class: lSlice, L: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (sliceHdr, error) {
 			return *(*sliceHdr)(unsafe.Add(fr, off)), nil
 		}}
 	case lStr:
-		return node{class: lStr, S: func(fr unsafe.Pointer, _ map[string]any, _ any) (string, error) {
+		return node{class: lStr, S: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (string, error) {
 			return *(*string)(unsafe.Add(fr, off)), nil
 		}}
 	default:
-		return node{class: lIface, I: func(fr unsafe.Pointer, _ map[string]any, _ any) (ifacePair, error) {
+		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (ifacePair, error) {
 			return *(*ifacePair)(unsafe.Add(fr, off)), nil
 		}}
 	}
@@ -1667,22 +1865,22 @@ func constNode(cl layout, v reflect.Value) (node, error) {
 	if cl.scalar() {
 		n, f := scalarBits(cl, v)
 		if cl.float() {
-			return node{class: cl, F: func(unsafe.Pointer, map[string]any, any) (float64, error) { return f, nil }}, nil
+			return node{class: cl, F: func(unsafe.Pointer, context.Context, map[string]any, any) (float64, error) { return f, nil }}, nil
 		}
-		return node{class: cl, N: func(unsafe.Pointer, map[string]any, any) (uint64, error) { return n, nil }}, nil
+		return node{class: cl, N: func(unsafe.Pointer, context.Context, map[string]any, any) (uint64, error) { return n, nil }}, nil
 	}
 	switch cl {
 	case lStr:
 		s := v.String()
-		return node{class: lStr, S: func(unsafe.Pointer, map[string]any, any) (string, error) { return s, nil }}, nil
+		return node{class: lStr, S: func(unsafe.Pointer, context.Context, map[string]any, any) (string, error) { return s, nil }}, nil
 	case lPtr:
 		if !v.IsZero() {
 			return node{}, fmt.Errorf("only a zero pointer can be a constant")
 		}
-		return node{class: lPtr, P: func(unsafe.Pointer, map[string]any, any) (unsafe.Pointer, error) { return nil, nil }}, nil
+		return node{class: lPtr, P: func(unsafe.Pointer, context.Context, map[string]any, any) (unsafe.Pointer, error) { return nil, nil }}, nil
 	case lIface:
 		if v.IsZero() && v.Kind() == reflect.Interface {
-			return node{class: lIface, I: func(unsafe.Pointer, map[string]any, any) (ifacePair, error) { return ifacePair{}, nil }}, nil
+			return node{class: lIface, I: func(unsafe.Pointer, context.Context, map[string]any, any) (ifacePair, error) { return ifacePair{}, nil }}, nil
 		}
 		// A non-nil constant boxes once at compile time. The cell is a
 		// heap value reflect allocated; the closure keeps it reachable,
@@ -1693,7 +1891,7 @@ func constNode(cl layout, v reflect.Value) (node, error) {
 		cell.Set(v)
 		pair := *(*ifacePair)(cell.Addr().UnsafePointer())
 		keep := cell
-		return node{class: lIface, I: func(unsafe.Pointer, map[string]any, any) (ifacePair, error) {
+		return node{class: lIface, I: func(unsafe.Pointer, context.Context, map[string]any, any) (ifacePair, error) {
 			_ = keep
 			return pair, nil
 		}}, nil
@@ -1701,7 +1899,7 @@ func constNode(cl layout, v reflect.Value) (node, error) {
 		if !v.IsZero() {
 			return node{}, fmt.Errorf("only a nil slice can be a constant")
 		}
-		return node{class: lSlice, L: func(unsafe.Pointer, map[string]any, any) (sliceHdr, error) { return sliceHdr{}, nil }}, nil
+		return node{class: lSlice, L: func(unsafe.Pointer, context.Context, map[string]any, any) (sliceHdr, error) { return sliceHdr{}, nil }}, nil
 	}
 	return node{}, fmt.Errorf("a constant of class %s is not supported", cl)
 }
@@ -1719,7 +1917,7 @@ func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, e
 		if isDest {
 			return node{}, fmt.Errorf("dest cannot fill a string parameter")
 		}
-		return node{class: lStr, S: func(_ unsafe.Pointer, st map[string]any, _ any) (string, error) {
+		return node{class: lStr, S: func(_ unsafe.Pointer, _ context.Context, st map[string]any, _ any) (string, error) {
 			v, ok := st[name]
 			if !ok || v == nil {
 				return "", nil
@@ -1736,7 +1934,7 @@ func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, e
 			return node{}, fmt.Errorf("%s is not in ifaceConvs", pt)
 		}
 		if isDest {
-			return node{class: lIface, I: func(_ unsafe.Pointer, _ map[string]any, d any) (ifacePair, error) {
+			return node{class: lIface, I: func(_ unsafe.Pointer, _ context.Context, _ map[string]any, d any) (ifacePair, error) {
 				if d == nil {
 					return ifacePair{}, fmt.Errorf("exec: dest is only set by Scan")
 				}
@@ -1747,7 +1945,7 @@ func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, e
 				return pair, nil
 			}}, nil
 		}
-		return node{class: lIface, I: func(_ unsafe.Pointer, st map[string]any, _ any) (ifacePair, error) {
+		return node{class: lIface, I: func(_ unsafe.Pointer, _ context.Context, st map[string]any, _ any) (ifacePair, error) {
 			v, ok := st[name]
 			if !ok || v == nil {
 				return ifacePair{}, nil
@@ -1779,7 +1977,7 @@ func stackScalarNode(name string, pt reflect.Type, cl layout) (node, error) {
 		return node{}, fmt.Errorf("a stack value of named type %s stays on the reflect tier", pt)
 	}
 	if cl.float() {
-		return node{class: cl, F: func(_ unsafe.Pointer, st map[string]any, _ any) (float64, error) {
+		return node{class: cl, F: func(_ unsafe.Pointer, _ context.Context, st map[string]any, _ any) (float64, error) {
 			v, ok := st[name]
 			if !ok || v == nil {
 				return 0, nil
@@ -1792,7 +1990,7 @@ func stackScalarNode(name string, pt reflect.Type, cl layout) (node, error) {
 			return fl, nil
 		}}, nil
 	}
-	return node{class: cl, N: func(_ unsafe.Pointer, st map[string]any, _ any) (uint64, error) {
+	return node{class: cl, N: func(_ unsafe.Pointer, _ context.Context, st map[string]any, _ any) (uint64, error) {
 		v, ok := st[name]
 		if !ok || v == nil {
 			return 0, nil
