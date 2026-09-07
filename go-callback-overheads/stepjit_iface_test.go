@@ -93,3 +93,62 @@ func TestScalarIfaceSmallBox(t *testing.T) {
 		}
 	}
 }
+
+// TestScalarIfaceFloats pins the float boxing paths, which have no
+// static cells: each width escapes a value of its exact type.
+func TestScalarIfaceFloats(t *testing.T) {
+	anyT := reflect.TypeFor[any]()
+	for name, tc := range map[string]struct {
+		typ  reflect.Type
+		f    float64
+		want any
+	}{
+		"float64":     {reflect.TypeFor[float64](), 2.5, float64(2.5)},
+		"float32":     {reflect.TypeFor[float32](), 1.5, float32(1.5)},
+		"float64 neg": {reflect.TypeFor[float64](), -0.25, float64(-0.25)},
+	} {
+		tab, ok := itabFor(tc.typ, anyT)
+		if !ok {
+			t.Fatalf("%s: no itab", name)
+		}
+		f := tc.f
+		n, err := scalarIface(tab, node{class: layoutOf(tc.typ), F: func(unsafe.Pointer, context.Context, map[string]any, any) (float64, error) {
+			return f, nil
+		}})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		pair, err := n.I(nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		got := *(*any)(unsafe.Pointer(&pair))
+		if got != tc.want {
+			t.Errorf("%s: boxed %v (%T), want %v (%T)", name, got, got, tc.want, tc.want)
+		}
+	}
+}
+
+// TestFloatVariableIntoAny drives the same boxing through a program: a
+// float held in a frame slot passed to an any parameter.
+func TestFloatVariableIntoAny(t *testing.T) {
+	rt := NewRuntime()
+	var seen any
+	if err := rt.Bind("takeAny", func(v any) string { seen = v; return "ok" }); err != nil {
+		t.Fatal(err)
+	}
+	const src = `var f float64; f = 2.5; s := takeAny(f); return s`
+	if err := rt.Supports(src); err != nil {
+		t.Fatalf("did not JIT: %v", err)
+	}
+	fn, err := rt.Compile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fn.Exec[string](nil); err != nil {
+		t.Fatal(err)
+	}
+	if seen != float64(2.5) {
+		t.Errorf("callee saw %v (%T), want 2.5", seen, seen)
+	}
+}

@@ -196,6 +196,22 @@ func TestFieldAssignment(t *testing.T) {
 // slice, and the errors around a misplaced spread.
 func TestVariadic(t *testing.T) {
 	rt := featRuntime(t)
+	// The tier is asserted for every legal form with the result named:
+	// a silent fall back to the reflect evaluator would leave the pack
+	// and spread nodes untested while the test still passed. A call
+	// returned directly (return path.Join(...)) does not reach the JIT
+	// at all, because a returned value needs a slot; that is a known
+	// planner gap, not a variadic one.
+	for _, src := range []string{
+		`s := path.Join("a", "b", "c"); return s;`,
+		`parts := strings.Fields("x y z"); s := path.Join(parts...); return s;`,
+		`s := path.Join(); return s;`,
+	} {
+		if err := rt.Supports(src); err != nil {
+			t.Errorf("%s: did not JIT: %v", src, err)
+		}
+	}
+
 	fn, err := rt.Compile(`return path.Join("a", "b", "c");`)
 	if err != nil {
 		t.Fatal(err)

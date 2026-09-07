@@ -3,6 +3,7 @@ package gozero
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -96,5 +97,55 @@ func TestCompiledFunc_ScanContext(t *testing.T) {
 	}
 	if err := fn.ScanContext[http.Request](context.Background(), nil, nil); err == nil {
 		t.Error("expected an error for a nil dest")
+	}
+}
+
+// TestCompiledFunc_ScanBranches covers the three scanInto outcomes the
+// deref path left cold: a result directly assignable to dest, a nil
+// pointer result zeroing dest, and a result no dest type can take.
+func TestCompiledFunc_ScanBranches(t *testing.T) {
+	rt := newRuntime(t)
+	if err := rt.Bind("nilReq", func() (*http.Request, error) { return nil, nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Bind("word", func() string { return "w" }); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assignable: a *http.Request result into a *http.Request dest.
+	fn, err := rt.Compile(`return NewRequest("GET", "https://example.com/assign");`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ptr *http.Request
+	if err := fn.Scan(&ptr, nil); err != nil {
+		t.Fatal(err)
+	}
+	if ptr == nil || ptr.URL.Path != "/assign" {
+		t.Errorf("scanned %v, want the request pointer", ptr)
+	}
+
+	// A nil pointer result zeroes a value dest rather than faulting.
+	fn, err = rt.Compile(`r := nilReq(); return r`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	junk := http.Request{Method: "JUNK"}
+	if err := fn.Scan(&junk, nil); err != nil {
+		t.Fatal(err)
+	}
+	if junk.Method != "" {
+		t.Errorf("dest.Method = %q, want the zero value", junk.Method)
+	}
+
+	// A result the dest cannot hold is an error naming both types.
+	fn, err = rt.Compile(`s := word(); return s`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	err = fn.Scan(&n, nil)
+	if err == nil || !strings.Contains(err.Error(), "cannot scan") {
+		t.Fatalf("err = %v, want the scan mismatch reported", err)
 	}
 }
