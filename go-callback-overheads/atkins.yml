@@ -36,6 +36,7 @@ jobs:
 
   fmt:
     desc: Format the module
+    passthru: true
     steps:
       - run: splint --fix ./...
 
