@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 var bytesNewBufferString = bytes.NewBufferString
@@ -33,18 +31,18 @@ func (f *testFixtures) testHTTP(tb testing.TB) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	assert.Equal(tb, "GET", req.Method)
-	assert.Equal(tb, "/a/b", req.URL.Path)
+	assertEqual(tb, "GET", req.Method, "")
+	assertEqual(tb, "/a/b", req.URL.Path, "")
 
 	req.Method = "POST"
-	assert.Equal(tb, "POST", req.Method)
+	assertEqual(tb, "POST", req.Method, "")
 
 	req.Host = "override.example.com"
-	assert.Equal(tb, "override.example.com", req.Host)
+	assertEqual(tb, "override.example.com", req.Host, "")
 
 	ctx := req.Context()
 	v, _ := ctx.Value(fixtureCtxKey{}).(string)
-	assert.Equal(tb, "fixture", v)
+	assertEqual(tb, "fixture", v, "")
 }
 
 func (f *testFixtures) testURL(tb testing.TB) {
@@ -52,20 +50,20 @@ func (f *testFixtures) testURL(tb testing.TB) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	assert.Equal(tb, "https", u.Scheme)
-	assert.Equal(tb, "example.com", u.Host)
-	assert.Equal(tb, "/p/q", u.Path)
-	assert.Equal(tb, "x=1", u.RawQuery)
+	assertEqual(tb, "https", u.Scheme, "")
+	assertEqual(tb, "example.com", u.Host, "")
+	assertEqual(tb, "/p/q", u.Path, "")
+	assertEqual(tb, "x=1", u.RawQuery, "")
 
 	u.Path = "/rewritten"
-	assert.Equal(tb, "https://user@example.com/rewritten?x=1", u.String())
+	assertEqual(tb, "https://user@example.com/rewritten?x=1", u.String(), "")
 
 	vals, err := url.ParseQuery("a=1&b=2")
 	if err != nil {
 		tb.Fatal(err)
 	}
-	assert.Equal(tb, "1", vals.Get("a"))
-	assert.Equal(tb, "2", vals.Get("b"))
+	assertEqual(tb, "1", vals.Get("a"), "")
+	assertEqual(tb, "2", vals.Get("b"), "")
 }
 
 func (f *testFixtures) testJSON(tb testing.TB) {
@@ -74,7 +72,7 @@ func (f *testFixtures) testJSON(tb testing.TB) {
 	if err := enc.Encode(42); err != nil {
 		tb.Fatal(err)
 	}
-	assert.Equal(tb, "42\n", buf.String())
+	assertEqual(tb, "42\n", buf.String(), "")
 
 	buf2 := bytesNewBufferString("")
 	req, err := http.NewRequest("GET", "/", nil)
@@ -84,35 +82,35 @@ func (f *testFixtures) testJSON(tb testing.TB) {
 	if err := json.NewEncoder(buf2).Encode(req.Cookies()); err != nil {
 		tb.Fatal(err)
 	}
-	assert.Equal(tb, "[]\n", buf2.String())
+	assertEqual(tb, "[]\n", buf2.String(), "")
 }
 
 func (f *testFixtures) testFmt(tb testing.TB) {
 	var n int64
 	n = 7
 	s := fmt.Sprintf("n=%d ok=%v", n, true)
-	assert.Equal(tb, "n=7 ok=true", s)
+	assertEqual(tb, "n=7 ok=true", s, "")
 
-	assert.Equal(tb, "a b", fmt.Sprint("a", " ", "b"))
+	assertEqual(tb, "a b", fmt.Sprint("a", " ", "b"), "")
 }
 
 func (f *testFixtures) testTypes(tb testing.TB) {
 	var count int32
 	count = 41
-	assert.Equal(tb, "41", fmt.Sprintf("%d", count))
+	assertEqual(tb, "41", fmt.Sprintf("%d", count), "")
 
 	x := 2.5
-	assert.Equal(tb, "2.5", fmt.Sprintf("%v", x))
+	assertEqual(tb, "2.5", fmt.Sprintf("%v", x), "")
 
 	var u url.URL
-	assert.Equal(tb, "", u.Path)
-	assert.True(tb, true)
+	assertEqual(tb, "", u.Path, "")
+	assertTrue(tb, true, "")
 }
 
 func (f *testFixtures) testVariadic(tb testing.TB) {
 	parts := strings.Fields("a b c")
 	joined := path.Join(parts...)
-	assert.Equal(tb, "a/b/c", joined, "path.Join over spread fields")
+	assertEqual(tb, "a/b/c", joined, "path.Join over spread fields")
 }
 
 // BenchmarkFixtures runs each fixture program against its handwritten
@@ -189,33 +187,13 @@ func newBenchFixtureRuntime(b *testing.B) *Runtime {
 		"fmt":     {"Sprintf": fmt.Sprintf, "Sprint": fmt.Sprint},
 		"strings": {"Fields": strings.Fields},
 		"path":    {"Join": path.Join},
-		// Equal is rebound without the variadic tail, (tb, want, got,
-		// message): every parameter has a shape, so an assertion is a
-		// direct call. The message is optional the way every trailing
-		// argument is, zero-filled to "".
+		// Equal has no variadic tail, (tb, want, got, message): every
+		// parameter has a shape, so an assertion is a direct call. The
+		// message is optional the way every trailing argument is,
+		// zero-filled to "".
 		"assert": {
-			"Equal": func(tb any, want, got any, message string) {
-				t, ok := tb.(assert.TestingT)
-				if !ok {
-					panic(fmt.Sprintf("assert.Equal: tb is %T, want a testing.TB", tb))
-				}
-				if message != "" {
-					assert.Equal(t, want, got, message)
-					return
-				}
-				assert.Equal(t, want, got)
-			},
-			"True": func(tb any, value bool, message string) {
-				t, ok := tb.(assert.TestingT)
-				if !ok {
-					panic(fmt.Sprintf("assert.True: tb is %T, want a testing.TB", tb))
-				}
-				if message != "" {
-					assert.True(t, value, message)
-					return
-				}
-				assert.True(t, value)
-			},
+			"Equal": assertEqual,
+			"True":  assertTrue,
 		},
 	} {
 		if err := rt.BindScope(scope, fns); err != nil {

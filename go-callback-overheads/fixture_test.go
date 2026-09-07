@@ -12,14 +12,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type fixtureCtxKey struct{}
 
 // fixtureRuntime binds the standard library surface the fixtures use,
-// plus testify's assertions. tb travels on the stack, so a fixture
+// plus the assert bindings. tb travels on the stack, so a fixture
 // makes its own test assertions: assert.Equal(tb, want, got).
 func fixtureRuntime(t *testing.T) *Runtime {
 	t.Helper()
@@ -38,33 +36,13 @@ func fixtureRuntime(t *testing.T) *Runtime {
 		"fmt":     {"Sprintf": fmt.Sprintf, "Sprint": fmt.Sprint},
 		"strings": {"Fields": strings.Fields},
 		"path":    {"Join": path.Join},
-		// Equal is rebound without the variadic tail, (tb, want, got,
-		// message): every parameter has a shape, so an assertion is a
-		// direct call. The message is optional the way every trailing
-		// argument is, zero-filled to "".
+		// Equal has no variadic tail, (tb, want, got, message): every
+		// parameter has a shape, so an assertion is a direct call. The
+		// message is optional the way every trailing argument is,
+		// zero-filled to "".
 		"assert": {
-			"Equal": func(tb any, want, got any, message string) {
-				t, ok := tb.(assert.TestingT)
-				if !ok {
-					panic(fmt.Sprintf("assert.Equal: tb is %T, want a testing.TB", tb))
-				}
-				if message != "" {
-					assert.Equal(t, want, got, message)
-					return
-				}
-				assert.Equal(t, want, got)
-			},
-			"True": func(tb any, value bool, message string) {
-				t, ok := tb.(assert.TestingT)
-				if !ok {
-					panic(fmt.Sprintf("assert.True: tb is %T, want a testing.TB", tb))
-				}
-				if message != "" {
-					assert.True(t, value, message)
-					return
-				}
-				assert.True(t, value)
-			},
+			"Equal": assertEqual,
+			"True":  assertTrue,
 		},
 	} {
 		if err := rt.BindScope(scope, fns); err != nil {
