@@ -1,4 +1,7 @@
-# Fixture tests: programs evaluated hot
+---
+title: Fixture tests, programs evaluated hot
+date: 2026-09-06T12:31:21+02:00
+---
 
 The programs under `testdata/` are the VM's test suite and its use case
 demonstration at once. Each `.txt` file is one program in the VM's own
@@ -111,7 +114,7 @@ on formatting and assertion plumbing sit under 2x. For the bridge cost
 of a call the shape table cannot express, and for the work-only
 comparison without assertions, see the benchmarks in
 `fixture_bench_test.go`. For how these numbers move when inlining is
-enabled, which is what a caller sees, see `inline-behaviour.md`.
+enabled, which is what a caller sees, see [inlining.md](inlining.md).
 
 Two details of the direct tier show up in these columns. A scalar
 whose bits fit a byte boxes into a static cell rather than a fresh
@@ -135,3 +138,25 @@ interface alias or, when the slot is written more than once, a copy:
 `TestValueStructIntoInterface` pins that a binding that retains the
 interface sees the value as it was at the call, not what a later field
 write put in the slot.
+
+## Learnings
+
+- A fixture program is the test suite and the use-case demonstration at
+  once: compiled hot inside the test process against live bindings,
+  making its own assertions through a bound assert, with the subtest's
+  `testing.TB` travelling on the stack.
+- Adding a test is adding a file. Nothing regenerates and nothing
+  relinks; the same binary runs new programs as long as the APIs they
+  call are already bound.
+- A variadic API binds into the hot path by wrapping it at the arity
+  the scripts use and letting zero-fill make the tail optional; the
+  fixed shape is what keeps an assertion a direct call.
+- Context plumbing is provable end to end from inside a fixture: the
+  value attached by the runner comes back out of the request only if
+  the auto-filled parameter carried it.
+- Against handwritten mirrors the fixtures run at 1.0x-1.6x with
+  allocation parity on two of six, and the assert helper's comparable
+  fast path is worth an allocation per assertion.
+- A struct held by value lives in the frame: field access is an offset,
+  and a whole-struct value only needs transport when a binding takes
+  it.

@@ -1,4 +1,7 @@
-# What flatstack solved first
+---
+title: What flatstack solved first
+date: 2026-09-05T16:06:34+02:00
+---
 
 [phpscript](https://github.com/titpetric/phpscript) is a PHP interpreter
 written in Go, and its
@@ -141,7 +144,7 @@ native code it stands for on every run of the suite.
 
 **Gain.** It immediately reported something the benchmarks had hidden:
 6 allocations against native's 5 in an ordinary build. The results table
-in the README shows 6 against 6, which is true only under
+in [overheads.md](overheads.md) shows 6 against 6, which is true only under
 `-gcflags=all=-l`, the flag the benchmarks use. With inlining the Go
 compiler proves the cookie slice does not outlive the `Encode` call and
 keeps it on the stack; the JIT hands that value to a func it
@@ -183,3 +186,23 @@ it twice. It now records splices in a side table.
 The rewrite dropped the guard that refuses to alias a slot written more
 than once. `TestStepJITRefusesReassignedAlias`, written when the
 aliasing was introduced, failed on the first run of the new code.
+
+## Learnings
+
+- Boxing is what makes pooling possible: flatstack pools because its
+  locals are already `any`; these slots hold typed Go values, so
+  pooling would add the box it removed. The diagnosis mattered more
+  than the decision: the frame should barely exist, and the closure
+  tree with `planInline` is what came of asking why.
+- Clear a pooled buffer to capacity, not length; the leak passes every
+  test.
+- Publish the tier gate. `Supports` is what stops a benchmark or an
+  equivalence test measuring an accidental fallback, and it should say
+  why, not only whether.
+- A fast path must keep the panic boundary, and the boundary should
+  cover every tier by construction: `Compile` wraps what it returns.
+- Put an allocation ceiling in the test suite; it found the one
+  allocation the benchmark flags were hiding.
+- The prior art's central trick, a type switch over concrete
+  signatures, is exactly what does not port to typed Go bindings, and
+  the layout classes are the answer to that.

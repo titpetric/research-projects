@@ -1,4 +1,7 @@
-# Type binding, hydration and discovery
+---
+title: Type binding, hydration and discovery
+date: 2026-09-05T17:44:56+02:00
+---
 
 The VM calls Go functions it was handed. Those functions have types, and
 a program has to be able to name them: `var x int64` needs `int64`, and
@@ -270,3 +273,26 @@ call whose parameter and result classes are not in it sends the whole
 program to the reflect evaluator. `Runtime.Supports` reports which call
 and which shape, so this is visible rather than something to discover in
 a benchmark.
+
+## Learnings
+
+- Binding a function is the only registration step a caller takes:
+  discovery walks the signature's type graph and everything reachable
+  from it becomes nameable, struct fields included. Ten stdlib
+  constructors contribute 118 types between them, mostly overlapping.
+- A type becomes nameable because some bound function has an opinion
+  about it, not because anyone declared it; `BindType` exists only for
+  the type no binding mentions.
+- Hydration is free at execution: a declared zero value is the zeroed
+  frame on the direct tier and a `reflect.Zero` recorded once on the
+  other.
+- Literal typing needs three rules (declaration, first use, parser
+  width), and a declared type refusing to be overridden by use is what
+  keeps the mismatch loud.
+- Each scalar width being its own layout class is what lets scalars
+  reach the direct-call tier at all: the cast needs the exact Go type.
+- Two claims aged out of this chapter: a scalar boxed into an
+  interface no longer always allocates, since bits under 256 alias a
+  static cell (2026-09-07); and a call outside the shape table no
+  longer sends the whole program to reflect, it compiles to a per-call
+  bridge while its neighbours stay direct (2026-09-06).

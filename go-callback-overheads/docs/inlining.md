@@ -1,4 +1,7 @@
-# Inlining and the vm/native gap
+---
+title: Inlining and the vm/native gap
+date: 2026-09-07T10:02:54+02:00
+---
 
 `BenchmarkFixtures` compared across two builds of the same tree: the
 default build, and `-gcflags=all=-l`, which disables inlining in every
@@ -63,3 +66,19 @@ that inlining has already made faster on both sides.
 taskset -c 3 go test -run '^$' -bench 'BenchmarkFixtures/' -benchmem -benchtime 1s
 taskset -c 3 go test -run '^$' -bench 'BenchmarkFixtures/' -benchmem -benchtime 1s -gcflags=all=-l
 ```
+
+## Learnings
+
+- Disabling inlining roughly doubles both columns because most of every
+  fixture's time is shared library work; the ratios still move, and in
+  both directions.
+- The no-inline ratio approximates the structural cost of interpreting,
+  one indirect call and one boxed transport per node, immune to the
+  compiler in either build. The default-build ratio is what a caller
+  sees.
+- Inlining feeds escape analysis: the native mirrors lose allocations
+  with it on, the vm's counts do not move, because its values travel
+  through closures the compiler cannot see through.
+- A fixture whose work is one call runs at native parity once nothing
+  inlines: variadic hit 1.0x, which locates the interpreter's overhead
+  in the statements around a call rather than in the call.
