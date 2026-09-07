@@ -271,7 +271,7 @@ func (c *Compiler) compileProgram(prog *program) (*vmProgram, error) {
 					return nil, fmt.Errorf("compile: %s = nil needs a var declaration or a use to take a type from", name)
 				}
 			}
-			v, err := literalValue(*s.lit, t)
+			v, err := literalValue(t, *s.lit)
 			if err != nil {
 				return nil, fmt.Errorf("compile: %s: %w", name, err)
 			}
@@ -363,7 +363,7 @@ func nilAs(pt reflect.Type) (reflect.Value, error) {
 }
 
 // literalValue converts a parsed literal to type t.
-func literalValue(a arg, t reflect.Type) (reflect.Value, error) {
+func literalValue(t reflect.Type, a arg) (reflect.Value, error) {
 	if a.kind == argBool {
 		v := reflect.ValueOf(a.b)
 		if t.Kind() == reflect.Interface && t.NumMethod() == 0 {
@@ -387,7 +387,7 @@ func literalValue(a arg, t reflect.Type) (reflect.Value, error) {
 		}
 		return v, nil
 	}
-	return literalAs(a, t)
+	return literalAs(t, a)
 }
 
 // inferLiteralType picks the type of a name a literal is assigned to,
@@ -483,7 +483,7 @@ func (c *Compiler) useType(e *callExpr, name string) reflect.Type {
 //
 // An empty interface parameter takes the literal at its written width,
 // int64 or float64, which is what the parser produced.
-func literalAs(a arg, pt reflect.Type) (reflect.Value, error) {
+func literalAs(pt reflect.Type, a arg) (reflect.Value, error) {
 	if pt.Kind() == reflect.Interface {
 		if pt.NumMethod() != 0 {
 			return reflect.Value{}, fmt.Errorf("cannot use a number as %s", pt)
@@ -592,7 +592,7 @@ func (c *Compiler) compileFieldSet(slots map[string]int, env map[string]reflect.
 	}
 
 	if s.lit != nil {
-		v, err := literalValue(*s.lit, t)
+		v, err := literalValue(t, *s.lit)
 		if err != nil {
 			return nil, fmt.Errorf("compile: %s: %w", fs.field, err)
 		}
@@ -887,7 +887,7 @@ func (c *Compiler) compileArg(slots map[string]int, env map[string]reflect.Type,
 	case argString:
 		v = reflect.ValueOf(a.str)
 	case argInt, argFloat:
-		lit, err := literalAs(a, pt)
+		lit, err := literalAs(pt, a)
 		if err != nil {
 			return nil, fmt.Errorf("compile: %s argument %d: %w", name, pos+1, err)
 		}

@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"unsafe"
-	_ "unsafe" // for go:linkname
+	"unsafe" // also required by go:linkname
 )
 
 // unsafeNew is the allocator reflect.New itself calls. Going straight
@@ -223,7 +222,7 @@ type node struct {
 }
 
 // loadN reads a scalar of class cl out of the frame as raw bits.
-func loadN(cl layout, at unsafe.Pointer) uint64 {
+func loadN(at unsafe.Pointer, cl layout) uint64 {
 	switch cl {
 	case lBool:
 		if *(*bool)(at) {
@@ -267,7 +266,7 @@ func storeN(cl layout, at unsafe.Pointer, v uint64) {
 	}
 }
 
-func loadF(cl layout, at unsafe.Pointer) float64 {
+func loadF(at unsafe.Pointer, cl layout) float64 {
 	if cl == lF32 {
 		return float64(*(*float32)(at))
 	}
@@ -284,7 +283,7 @@ func storeF(cl layout, at unsafe.Pointer, v float64) {
 
 // scalarBits turns a compile-time constant into the representation
 // nodeN and nodeF carry.
-func scalarBits(cl layout, v reflect.Value) (uint64, float64) {
+func scalarBits(v reflect.Value, cl layout) (uint64, float64) {
 	switch cl {
 	case lBool:
 		if v.Bool() {
@@ -1204,12 +1203,12 @@ func planInline(p *vmProgram) (*jitPlan, error) {
 	}
 	for _, s := range stmts {
 		if s.call != nil {
-			countReads(s.call, reads)
+			countReads(reads, s.call)
 		}
 		if s.fieldSet != nil {
 			reads[s.fieldSet.base]++
 			if sub := s.fieldSet.val.sub; sub != nil {
-				countReads(sub, reads)
+				countReads(reads, sub)
 			}
 		}
 	}
@@ -1276,7 +1275,7 @@ func planInline(p *vmProgram) (*jitPlan, error) {
 // req: missing those undercounts, and a name read once directly and
 // once through a field would have its producer spliced away while the
 // field read still pointed at the dropped slot.
-func countReads(c *vmCall, reads map[int]int) {
+func countReads(reads map[int]int, c *vmCall) {
 	for _, a := range c.args {
 		for a.kind == vaField {
 			a = a.src
@@ -1285,7 +1284,7 @@ func countReads(c *vmCall, reads map[int]int) {
 		case vaSlot:
 			reads[a.slot]++
 		case vaCall:
-			countReads(a.sub, reads)
+			countReads(reads, a.sub)
 		}
 	}
 }
@@ -1304,7 +1303,7 @@ func findSplice(c *vmCall, slot int, splices map[*vmArg]*vmCall) *vmArg {
 			}
 			return a
 		}
-		if sub := subCall(a, splices); sub != nil {
+		if sub := subCall(splices, a); sub != nil {
 			if found := findSplice(sub, slot, splices); found != nil {
 				return found
 			}
@@ -1315,7 +1314,7 @@ func findSplice(c *vmCall, slot int, splices map[*vmArg]*vmCall) *vmArg {
 
 // subCall is the call an argument evaluates, whether it was written
 // nested or spliced in by planInline.
-func subCall(a *vmArg, splices map[*vmArg]*vmCall) *vmCall {
+func subCall(splices map[*vmArg]*vmCall, a *vmArg) *vmCall {
 	for a.kind == vaField {
 		a = a.src
 	}
@@ -1340,7 +1339,7 @@ func (c *jitCompiler) stmtNode(s plannedStmt, jp *jitProgram) (nodeE, error) {
 		if cl == lBad {
 			return nil, fmt.Errorf("a literal of type %s has no layout class", c.types[field])
 		}
-		lit, err := constNode(cl, s.lit)
+		lit, err := constNode(s.lit, cl)
 		if err != nil {
 			return nil, err
 		}
@@ -1467,7 +1466,7 @@ func (c *jitCompiler) fieldSetNode(fs *vmFieldSet) (nodeE, error) {
 	var val node
 	switch fs.val.kind {
 	case vaConst:
-		v, err := constNode(cl, fs.val.val)
+		v, err := constNode(fs.val.val, cl)
 		if err != nil {
 			return nil, err
 		}
@@ -1884,7 +1883,7 @@ func (c *jitCompiler) bridgeNode(call *vmCall) (node, error) {
 			if err != nil {
 				return 0, err
 			}
-			return loadF(cl, at), nil
+			return loadF(at, cl), nil
 		}}, nil
 	default:
 		return node{class: cl, N: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (uint64, error) {
@@ -1892,7 +1891,7 @@ func (c *jitCompiler) bridgeNode(call *vmCall) (node, error) {
 			if err != nil {
 				return 0, err
 			}
-			return loadN(cl, at), nil
+			return loadN(at, cl), nil
 		}}, nil
 	}
 }
@@ -1915,7 +1914,7 @@ func (c *jitCompiler) bridgeArg(a *vmArg) (func(unsafe.Pointer, context.Context,
 			if err != nil {
 				return nil, err
 			}
-			return c.nodeToValue(sub, callResultType(producer, 0))
+			return c.nodeToValue(callResultType(producer, 0), sub)
 		}
 		field, ok := c.slotOf[a.slot]
 		if !ok {
@@ -1958,21 +1957,21 @@ func (c *jitCompiler) bridgeArg(a *vmArg) (func(unsafe.Pointer, context.Context,
 			return nil, err
 		}
 		rt := callResultType(a.sub, 0)
-		return c.nodeToValue(sub, rt)
+		return c.nodeToValue(rt, sub)
 
 	case vaField:
 		fieldNode, err := c.argNode(a, a.typ, layoutOf(a.typ))
 		if err != nil {
 			return nil, err
 		}
-		return c.nodeToValue(fieldNode, a.typ)
+		return c.nodeToValue(a.typ, fieldNode)
 	}
 	return nil, fmt.Errorf("a bridged argument of kind %d is not supported", a.kind)
 }
 
 // nodeToValue adapts a compiled node into a reflect.Value producer, by
 // writing the node's words into a typed cell.
-func (c *jitCompiler) nodeToValue(n node, rt reflect.Type) (func(unsafe.Pointer, context.Context, map[string]any, any) (reflect.Value, error), error) {
+func (c *jitCompiler) nodeToValue(rt reflect.Type, n node) (func(unsafe.Pointer, context.Context, map[string]any, any) (reflect.Value, error), error) {
 	if rt == nil {
 		return nil, fmt.Errorf("a bridged argument with no result type")
 	}
@@ -2041,7 +2040,7 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 			return sub, nil
 		}
 		if cl == lIface {
-			return c.toIface(sub, callResultType(a.sub, 0), pt)
+			return c.toIface(callResultType(a.sub, 0), pt, sub)
 		}
 		return node{}, fmt.Errorf("a %s result cannot fill a %s parameter", sub.class, cl)
 
@@ -2055,7 +2054,7 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 				return sub, nil
 			}
 			if cl == lIface {
-				return c.toIface(sub, callResultType(producer, 0), pt)
+				return c.toIface(callResultType(producer, 0), pt, sub)
 			}
 			return node{}, fmt.Errorf("a %s result cannot fill a %s parameter", sub.class, cl)
 		}
@@ -2087,7 +2086,7 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 					return ifacePair{tab: tab, data: unsafe.Add(fr, off)}, nil
 				}}, nil
 			}
-			return c.toIface(slotNode(layoutOf(st), off), st, pt)
+			return c.toIface(st, pt, slotNode(layoutOf(st), off))
 		}
 		if layoutOf(st) != cl {
 			return node{}, fmt.Errorf("a %s name cannot fill a %s parameter", layoutOf(st), cl)
@@ -2095,7 +2094,7 @@ func (c *jitCompiler) argNode(a *vmArg, pt reflect.Type, cl layout) (node, error
 		return slotNode(cl, off), nil
 
 	case vaConst:
-		return constNode(cl, a.val)
+		return constNode(a.val, cl)
 
 	case vaCtx:
 		// The execution context is already the exact interface type the
@@ -2180,7 +2179,7 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 				if err != nil {
 					return 0, err
 				}
-				return loadF(fcl, at), nil
+				return loadF(at, fcl), nil
 			}}
 		} else {
 			out = node{class: fcl, N: func(fr unsafe.Pointer, ctx context.Context, st map[string]any, d any) (uint64, error) {
@@ -2188,7 +2187,7 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 				if err != nil {
 					return 0, err
 				}
-				return loadN(fcl, at), nil
+				return loadN(at, fcl), nil
 			}}
 		}
 	}
@@ -2231,7 +2230,7 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 		return out, nil
 	}
 	if cl == lIface {
-		return c.toIface(out, sf.Type, pt)
+		return c.toIface(sf.Type, pt, out)
 	}
 	return node{}, fmt.Errorf("a %s field cannot fill a %s parameter", out.class, cl)
 }
@@ -2239,7 +2238,7 @@ func (c *jitCompiler) fieldNode(a *vmArg, pt reflect.Type, cl layout) (node, err
 // toIface wraps a computed value as an interface. A pointer-shaped
 // value is the data word itself; anything wider is stored indirectly,
 // which is the allocation the Go compiler makes at the same place.
-func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
+func (c *jitCompiler) toIface(st, pt reflect.Type, sub node) (node, error) {
 	if st == nil {
 		return node{}, fmt.Errorf("a call with no result cannot become an interface")
 	}
@@ -2248,7 +2247,7 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 		return node{}, fmt.Errorf("%s does not implement %s", st, pt)
 	}
 	if sub.class.scalar() {
-		return scalarIface(sub, tab)
+		return scalarIface(tab, sub)
 	}
 	switch sub.class {
 	case lPtr:
@@ -2286,7 +2285,7 @@ func (c *jitCompiler) toIface(sub node, st, pt reflect.Type) (node, error) {
 // point at a value of the concrete width, so each class materialises
 // one of its own type; that escape is the allocation the Go compiler
 // makes at the same place.
-func scalarIface(sub node, tab unsafe.Pointer) (node, error) {
+func scalarIface(tab unsafe.Pointer, sub node) (node, error) {
 	mk := func(box func(uint64) unsafe.Pointer) (node, error) {
 		f := sub.N
 		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
@@ -2343,11 +2342,11 @@ func slotNode(cl layout, off uintptr) node {
 	if cl.scalar() {
 		if cl.float() {
 			return node{class: cl, F: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (float64, error) {
-				return loadF(cl, unsafe.Add(fr, off)), nil
+				return loadF(unsafe.Add(fr, off), cl), nil
 			}}
 		}
 		return node{class: cl, N: func(fr unsafe.Pointer, ctx context.Context, _ map[string]any, _ any) (uint64, error) {
-			return loadN(cl, unsafe.Add(fr, off)), nil
+			return loadN(unsafe.Add(fr, off), cl), nil
 		}}
 	}
 	switch cl {
@@ -2370,9 +2369,9 @@ func slotNode(cl layout, off uintptr) node {
 	}
 }
 
-func constNode(cl layout, v reflect.Value) (node, error) {
+func constNode(v reflect.Value, cl layout) (node, error) {
 	if cl.scalar() {
-		n, f := scalarBits(cl, v)
+		n, f := scalarBits(v, cl)
 		if cl.float() {
 			return node{class: cl, F: func(unsafe.Pointer, context.Context, map[string]any, any) (float64, error) { return f, nil }}, nil
 		}

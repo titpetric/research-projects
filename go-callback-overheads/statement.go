@@ -22,10 +22,9 @@ type varSlot struct {
 // single fn.Call.
 //
 // Both paths are safe for concurrent use. The JIT'd statement (fast !=
-// nil) keeps no per-call state at all; the reflect path takes its
-// argument slice from a pool, because patching the prebuilt one in
-// place raced between goroutines sharing the func Runtime.Compile
-// caches.
+// nil) keeps no per-call state; the reflect path pools its argument
+// slice, because patching the prebuilt one in place raced between
+// goroutines sharing the func Runtime.Compile caches.
 type Statement struct {
 	fn   reflect.Value
 	fast CompiledFunc // JIT'd direct call, nil when out of shape

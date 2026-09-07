@@ -178,7 +178,7 @@ func TestVarBeatsInference(t *testing.T) {
 
 // TestTypeRegistry checks what a var statement can name. Almost
 // everything comes from walking the bindings; BindType covers the rest.
-func TestTypeRegistry(t *testing.T) {
+func TestRuntime_BindType(t *testing.T) {
 	rt, _ := typeRuntime(t)
 	for _, want := range []string{
 		"int", "int64", "uint32", "float32", "string", "bool", "any", "error", "[]uint8",
@@ -198,6 +198,21 @@ func TestTypeRegistry(t *testing.T) {
 	}
 	if _, err := rt.Compile(`var c io.Closer; json.NewEncoder(dest).Encode("x");`); err != nil {
 		t.Errorf("after BindType: %v", err)
+	}
+}
+
+// TestRuntime_Types checks that the listing carries both the
+// predeclared names and what discovery found.
+func TestRuntime_Types(t *testing.T) {
+	rt, _ := typeRuntime(t)
+	names := map[string]bool{}
+	for _, name := range rt.Types() {
+		names[name] = true
+	}
+	for _, want := range []string{"string", "*http.Request"} {
+		if !names[want] {
+			t.Errorf("%s is not listed by Types", want)
+		}
 	}
 }
 

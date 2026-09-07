@@ -522,7 +522,7 @@ func TestReadCountSeesFieldReads(t *testing.T) {
 	reads := map[int]int{}
 	for i := range p.stmts {
 		if p.stmts[i].call != nil {
-			countReads(p.stmts[i].call, reads)
+			countReads(reads, p.stmts[i].call)
 		}
 	}
 	if reads[0] != 2 {
