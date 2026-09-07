@@ -39,8 +39,8 @@ Each subtest:
    so cancellation and deadlines flow into the bindings, and the
    subtest's `testing.TB` on the stack as `tb`.
 
-A failing assertion inside the program calls `tb.Errorf` through
-testify, which fails the subtest the ordinary way. The runner adds
+A failing assertion inside the program calls `tb.Errorf` through the
+bound helper, which fails the subtest the ordinary way. The runner adds
 nothing: the program is the test. `TestAssertFailurePropagates` pins
 that a failing assertion actually reaches the TB, so the suite cannot
 pass vacuously.
@@ -51,20 +51,20 @@ scoped, one concern per file: `http.txt`, `url.txt`, `json.txt`,
 
 ## The assert bindings
 
-`assert.Equal` is not bound as `assert.Equal`. Its real signature ends
-in `msgAndArgs ...interface{}`, and a packed `...interface{}` of
-arbitrary arity is a reflect call. The fixture runtime binds a wrapper
-without the tail:
+`assert.Equal` is a local helper, not testify: an assertion library's
+signature ends in `msgAndArgs ...interface{}`, and a packed
+`...interface{}` of arbitrary arity is a reflect call. The fixture
+runtime binds a fixed shape instead:
 
 ```go
-"Equal": func(tb any, want, got any, message string) { ... }
+"Equal": assertEqual // func(tb any, want, got any, message string)
 ```
 
 Every parameter has a layout class, so an assertion is one direct call,
 and the message stays optional because every trailing argument is:
 `assert.Equal(tb, want, got)` zero-fills it to `""`. `tb` is typed
-`any` and asserted to testify's `TestingT` inside the wrapper, which
-keeps `testing` out of the runtime's own types.
+`any` and asserted to `testing.TB` inside the helper, which keeps
+`testing` out of the runtime's own types.
 
 This is the pattern for binding any variadic API into the hot path:
 wrap it at the arity the scripts use and let zero-fill make the tail
@@ -98,15 +98,15 @@ on the direct-call tier. Pinned core, inlining disabled:
 
 | fixture | vm | native | ratio |
 |---|---|---|---|
-| fmt | 2.0us, 7 allocs | 1.2us, 4 | 1.7x |
-| http | 3.6us, 9 allocs | 3.1us, 9 | 1.2x |
-| json | 5.1us, 17 allocs | 4.3us, 16 | 1.2x |
-| types | 2.6us, 9 allocs | 1.6us, 4 | 1.7x |
-| url | 5.6us, 15 allocs | 4.9us, 14 | 1.1x |
-| variadic | 0.9us, 4 allocs | 0.6us, 3 | 1.6x |
+| fmt | 1.7us, 7 allocs | 1.1us, 4 | 1.6x |
+| http | 3.3us, 9 allocs | 2.8us, 9 | 1.2x |
+| json | 5.2us, 17 allocs | 4.0us, 16 | 1.3x |
+| types | 2.5us, 9 allocs | 1.6us, 4 | 1.6x |
+| url | 4.9us, 15 allocs | 4.5us, 14 | 1.1x |
+| variadic | 0.6us, 3 allocs | 0.6us, 3 | 1.0x |
 
-http reaches allocation parity with its mirror; json, url and variadic
-are within one allocation, which is the frame. The fixtures that lean
+http and variadic reach allocation parity with their mirrors; json and
+url are within one allocation, which is the frame. The fixtures that lean
 on formatting and assertion plumbing sit under 2x. For the bridge cost
 of a call the shape table cannot express, and for the work-only
 comparison without assertions, see the benchmarks in

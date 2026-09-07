@@ -3,34 +3,34 @@
 `BenchmarkFixtures` compared across two builds of the same tree: the
 default build, and `-gcflags=all=-l`, which disables inlining in every
 package including the standard library. Pinned core (`taskset -c 3`),
-Intel N150, go1.27, `-count 3`, medians reported.
+Intel N150, go1.27, one 1s run per benchmark.
 
 ## With inlining (default build)
 
 | fixture | vm | native | ratio |
 |---|---|---|---|
-| fmt | 980ns, 152 B, 7 allocs | 668ns, 48 B, 4 | 1.5x |
-| http | 1927ns, 616 B, 9 allocs | 1725ns, 640 B, 9 | 1.1x |
-| json | 2400ns, 1016 B, 17 allocs | 2093ns, 728 B, 14 | 1.1x |
-| types | 1296ns, 272 B, 9 allocs | 904ns, 38 B, 4 | 1.4x |
-| url | 3038ns, 816 B, 15 allocs | 2510ns, 384 B, 12 | 1.2x |
-| variadic | 431ns, 85 B, 4 allocs | 351ns, 69 B, 3 | 1.2x |
+| fmt | 1002ns, 152 B, 7 allocs | 801ns, 48 B, 4 | 1.3x |
+| http | 2227ns, 616 B, 9 allocs | 2038ns, 640 B, 9 | 1.1x |
+| json | 2798ns, 1016 B, 17 allocs | 2170ns, 728 B, 14 | 1.3x |
+| types | 1775ns, 272 B, 9 allocs | 1308ns, 38 B, 4 | 1.4x |
+| url | 3413ns, 816 B, 15 allocs | 2802ns, 384 B, 12 | 1.2x |
+| variadic | 425ns, 69 B, 3 allocs | 359ns, 69 B, 3 | 1.2x |
 
 ## Without inlining (-gcflags=all=-l)
 
 | fixture | vm | native | ratio |
 |---|---|---|---|
-| fmt | 2017ns, 152 B, 7 allocs | 1169ns, 48 B, 4 | 1.7x |
-| http | 3633ns, 616 B, 9 allocs | 3081ns, 640 B, 9 | 1.2x |
-| json | 5090ns, 1016 B, 17 allocs | 4273ns, 984 B, 16 | 1.2x |
-| types | 2637ns, 272 B, 9 allocs | 1586ns, 38 B, 4 | 1.7x |
-| url | 5604ns, 816 B, 15 allocs | 4885ns, 784 B, 14 | 1.1x |
-| variadic | 932ns, 85 B, 4 allocs | 585ns, 69 B, 3 | 1.6x |
+| fmt | 1702ns, 152 B, 7 allocs | 1060ns, 48 B, 4 | 1.6x |
+| http | 3327ns, 616 B, 9 allocs | 2776ns, 640 B, 9 | 1.2x |
+| json | 5235ns, 1016 B, 17 allocs | 4013ns, 984 B, 16 | 1.3x |
+| types | 2499ns, 272 B, 9 allocs | 1608ns, 38 B, 4 | 1.6x |
+| url | 4864ns, 816 B, 15 allocs | 4495ns, 784 B, 14 | 1.1x |
+| variadic | 610ns, 69 B, 3 allocs | 619ns, 69 B, 3 | 1.0x |
 
 ## What the difference says
 
 Disabling inlining roughly doubles both columns: most of every
-fixture's time is shared work in fmt, testify and net/*, and that work
+fixture's time is shared work in fmt and net/*, and that work
 inflates equally on both sides. The ratios still move, in two
 directions.
 
@@ -39,9 +39,10 @@ pointers. The compiler can never inline across those calls, in either
 build, so the vm column changes only by what the standard library
 loses. The native column additionally loses the inlining of its own
 statements. Fixtures whose per-statement work is small show it most:
-fmt goes 1.5x to 1.7x and variadic 1.2x to 1.6x, because a fixed
-per-node dispatch cost stands out once the statements around it stop
-being folded away.
+fmt goes 1.3x to 1.6x, because a fixed per-node dispatch cost stands
+out once the statements around it stop being folded away. variadic
+runs at native parity without inlining: its work is one spread call,
+and the vm and the mirror make the same calls once nothing inlines.
 
 Inlining also feeds escape analysis, which shows in the alloc columns.
 With inlining, json/native drops from 16 allocs to 14 and url/native
@@ -59,6 +60,6 @@ that inlining has already made faster on both sides.
 ## Reproducing
 
 ```
-taskset -c 3 go test -run '^$' -bench 'BenchmarkFixtures/' -benchmem -benchtime 1s -count 3
-taskset -c 3 go test -run '^$' -bench 'BenchmarkFixtures/' -benchmem -benchtime 1s -count 3 -gcflags=all=-l
+taskset -c 3 go test -run '^$' -bench 'BenchmarkFixtures/' -benchmem -benchtime 1s
+taskset -c 3 go test -run '^$' -bench 'BenchmarkFixtures/' -benchmem -benchtime 1s -gcflags=all=-l
 ```
