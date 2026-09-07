@@ -36,9 +36,14 @@ jobs:
 
   fmt:
     desc: Format the module
+    # goimports and gofumpt predate the generic methods this module uses
+    # and fail to parse them. splint --fix owns the import block, scoped
+    # to the imports linter so the known filecheck and godoc findings do
+    # not fail the gate; go fmt runs the toolchain's own gofmt for the
+    # rest. The testify pollution waiver is in .splint.yml.
     steps:
-      - run: goimports -w .
-      - run: gofumpt -w .
+      - run: splint --fix -linters imports ./...
+      - run: go fmt ./...
       - run: go mod tidy
 
   lint:

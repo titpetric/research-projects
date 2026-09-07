@@ -1,0 +1,8 @@
+imports:
+  pollution:
+    # testify is test-only by design: the fixtures bind assert.Equal as
+    # a callback into the interpreted programs.
+    include-tests: false
+stats:
+  imports:
+    fixed: 2
