@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"unsafe" // also required by go:linkname
 )
@@ -1054,6 +1055,53 @@ type jitCompiler struct {
 	// leave the producer both spliced in and still a statement, and the
 	// fallback would run it twice.
 	splices map[*vmArg]*vmCall
+	// stackFields maps a stack name read more than once to the hidden
+	// frame field its value is loaded into when the program starts.
+	// Each read is then an offset from the frame pointer instead of a
+	// map lookup, which means the name is read once per execution: a
+	// binding that mutates the stack mid-run is not seen by later uses.
+	stackFields map[string]int
+}
+
+// countStackReads tallies the stack reads dynamicNode would compile to
+// a map lookup, walking the same edges countReads does plus the
+// spliced producers, whose arguments compile too.
+func (c *jitCompiler) countStackReads(plan *jitPlan) map[string]int {
+	counts := map[string]int{}
+	var walkCall func(*vmCall)
+	walkArg := func(a *vmArg) {
+		for a.kind == vaField {
+			a = a.src
+		}
+		switch a.kind {
+		case vaStack:
+			if a.typ != nil {
+				if cl := layoutOf(a.typ); cl == lIface || cl == lStr {
+					counts[a.name]++
+				}
+			}
+		case vaCall:
+			walkCall(a.sub)
+		case vaSlot:
+			if sub := c.splices[a]; sub != nil {
+				walkCall(sub)
+			}
+		}
+	}
+	walkCall = func(call *vmCall) {
+		for _, a := range call.args {
+			walkArg(a)
+		}
+	}
+	for _, s := range plan.stmts {
+		if s.call != nil {
+			walkCall(s.call)
+		}
+		if s.fieldSet != nil {
+			walkArg(s.fieldSet.val)
+		}
+	}
+	return counts
 }
 
 // jitCompileProgram builds the all-JIT form of a compiled program, or
@@ -1069,7 +1117,7 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 		return nil, err
 	}
 
-	c := &jitCompiler{slotOf: map[int]int{}, writes: plan.writes, splices: plan.splices}
+	c := &jitCompiler{slotOf: map[int]int{}, writes: plan.writes, splices: plan.splices, stackFields: map[string]int{}}
 	for slot := 0; slot < p.nslots; slot++ {
 		if !plan.live[slot] {
 			continue
@@ -1087,6 +1135,21 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 		c.types = append(c.types, t)
 	}
 
+	// A stack name read more than once gets a hidden any field, filled
+	// by a loader statement before the program runs; sorting keeps the
+	// frame layout deterministic across compilations.
+	var hoisted []string
+	for name, n := range c.countStackReads(plan) {
+		if n > 1 {
+			hoisted = append(hoisted, name)
+		}
+	}
+	sort.Strings(hoisted)
+	for _, name := range hoisted {
+		c.stackFields[name] = len(c.types)
+		c.types = append(c.types, reflect.TypeFor[any]())
+	}
+
 	jp := &jitProgram{}
 	if len(c.types) > 0 {
 		fields := make([]reflect.StructField, len(c.types))
@@ -1099,6 +1162,16 @@ func jitCompileProgram(p *vmProgram) (*jitProgram, error) {
 		for i := range c.types {
 			c.offs[i] = jp.frameType.Field(i).Offset
 		}
+	}
+
+	for _, name := range hoisted {
+		name, off := name, c.offs[c.stackFields[name]]
+		jp.stmts = append(jp.stmts, func(fr unsafe.Pointer, _ context.Context, st map[string]any, _ any) error {
+			if v, ok := st[name]; ok {
+				*(*any)(unsafe.Add(fr, off)) = v
+			}
+			return nil
+		})
 	}
 
 	for _, s := range plan.stmts {
@@ -2281,40 +2354,76 @@ func (c *jitCompiler) toIface(st, pt reflect.Type, sub node) (node, error) {
 	return node{}, fmt.Errorf("a %s result cannot become an interface", sub.class)
 }
 
+// staticBoxes is the immutable cell a small scalar aliases when it is
+// boxed, the trick runtime.staticuint64s plays for convT64 and
+// friends: bits under 256 point into this table instead of escaping a
+// fresh cell to the heap. The data word of an interface has to point
+// at a value of the concrete width; the low bytes of a uint64 cell
+// read correctly at every narrower width on a little-endian machine,
+// and smallBox offsets to the high bytes on a big-endian one.
+var staticBoxes [256]uint64
+
+var endianProbe uint16 = 1
+
+var bigEndian = *(*byte)(unsafe.Pointer(&endianProbe)) == 0
+
+func init() {
+	for i := range staticBoxes {
+		staticBoxes[i] = uint64(i)
+	}
+}
+
+// smallBox returns the static cell for bits, or false when the value
+// is too large to have one and needs a real allocation.
+func smallBox(bits uint64, width uintptr) (unsafe.Pointer, bool) {
+	if bits >= uint64(len(staticBoxes)) {
+		return nil, false
+	}
+	p := unsafe.Pointer(&staticBoxes[bits])
+	if bigEndian {
+		p = unsafe.Add(p, 8-width)
+	}
+	return p, true
+}
+
 // scalarIface boxes a scalar into an interface. The data word has to
 // point at a value of the concrete width, so each class materialises
 // one of its own type; that escape is the allocation the Go compiler
-// makes at the same place.
+// makes at the same place, except for the small values staticBoxes
+// already holds.
 func scalarIface(tab unsafe.Pointer, sub node) (node, error) {
-	mk := func(box func(uint64) unsafe.Pointer) (node, error) {
+	mk := func(width uintptr, box func(uint64) unsafe.Pointer) (node, error) {
 		f := sub.N
 		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
 			n, err := f(fr, ctx, s, d)
 			if err != nil {
 				return ifacePair{}, err
 			}
+			if p, ok := smallBox(n, width); ok {
+				return ifacePair{tab: tab, data: p}, nil
+			}
 			return ifacePair{tab: tab, data: box(n)}, nil
 		}}, nil
 	}
 	switch sub.class {
 	case lBool:
-		return mk(func(n uint64) unsafe.Pointer { v := n != 0; return unsafe.Pointer(&v) })
+		return mk(1, func(n uint64) unsafe.Pointer { v := n != 0; return unsafe.Pointer(&v) })
 	case lI8:
-		return mk(func(n uint64) unsafe.Pointer { v := int8(uint8(n)); return unsafe.Pointer(&v) })
+		return mk(1, func(n uint64) unsafe.Pointer { v := int8(uint8(n)); return unsafe.Pointer(&v) })
 	case lI16:
-		return mk(func(n uint64) unsafe.Pointer { v := int16(uint16(n)); return unsafe.Pointer(&v) })
+		return mk(2, func(n uint64) unsafe.Pointer { v := int16(uint16(n)); return unsafe.Pointer(&v) })
 	case lI32:
-		return mk(func(n uint64) unsafe.Pointer { v := int32(uint32(n)); return unsafe.Pointer(&v) })
+		return mk(4, func(n uint64) unsafe.Pointer { v := int32(uint32(n)); return unsafe.Pointer(&v) })
 	case lI64:
-		return mk(func(n uint64) unsafe.Pointer { v := int64(n); return unsafe.Pointer(&v) })
+		return mk(8, func(n uint64) unsafe.Pointer { v := int64(n); return unsafe.Pointer(&v) })
 	case lU8:
-		return mk(func(n uint64) unsafe.Pointer { v := uint8(n); return unsafe.Pointer(&v) })
+		return mk(1, func(n uint64) unsafe.Pointer { v := uint8(n); return unsafe.Pointer(&v) })
 	case lU16:
-		return mk(func(n uint64) unsafe.Pointer { v := uint16(n); return unsafe.Pointer(&v) })
+		return mk(2, func(n uint64) unsafe.Pointer { v := uint16(n); return unsafe.Pointer(&v) })
 	case lU32:
-		return mk(func(n uint64) unsafe.Pointer { v := uint32(n); return unsafe.Pointer(&v) })
+		return mk(4, func(n uint64) unsafe.Pointer { v := uint32(n); return unsafe.Pointer(&v) })
 	case lU64:
-		return mk(func(n uint64) unsafe.Pointer { v := n; return unsafe.Pointer(&v) })
+		return mk(8, func(n uint64) unsafe.Pointer { v := n; return unsafe.Pointer(&v) })
 	case lF32:
 		f := sub.F
 		return node{class: lIface, I: func(fr unsafe.Pointer, ctx context.Context, s map[string]any, d any) (ifacePair, error) {
@@ -2425,6 +2534,20 @@ func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, e
 		if isDest {
 			return node{}, fmt.Errorf("dest cannot fill a string parameter")
 		}
+		if idx, ok := c.stackFields[name]; ok {
+			off := c.offs[idx]
+			return node{class: lStr, S: func(fr unsafe.Pointer, _ context.Context, _ map[string]any, _ any) (string, error) {
+				v := *(*any)(unsafe.Add(fr, off))
+				if v == nil {
+					return "", nil
+				}
+				s, ok := v.(string)
+				if !ok {
+					return "", fmt.Errorf("exec: variable %q: cannot use %T as string", name, v)
+				}
+				return s, nil
+			}}, nil
+		}
 		return node{class: lStr, S: func(_ unsafe.Pointer, _ context.Context, st map[string]any, _ any) (string, error) {
 			v, ok := st[name]
 			if !ok || v == nil {
@@ -2449,6 +2572,20 @@ func (c *jitCompiler) dynamicNode(a *vmArg, pt reflect.Type, cl layout) (node, e
 				pair, ok := conv(d)
 				if !ok {
 					return ifacePair{}, fmt.Errorf("exec: variable %q: cannot use %T as %s", name, d, pt)
+				}
+				return pair, nil
+			}}, nil
+		}
+		if idx, ok := c.stackFields[name]; ok {
+			off := c.offs[idx]
+			return node{class: lIface, I: func(fr unsafe.Pointer, _ context.Context, _ map[string]any, _ any) (ifacePair, error) {
+				v := *(*any)(unsafe.Add(fr, off))
+				if v == nil {
+					return ifacePair{}, nil
+				}
+				pair, ok := conv(v)
+				if !ok {
+					return ifacePair{}, fmt.Errorf("exec: variable %q: cannot use %T as %s", name, v, pt)
 				}
 				return pair, nil
 			}}, nil
