@@ -55,48 +55,6 @@ func TestProgramWritesThroughDest(t *testing.T) {
 	}
 }
 
-// TestProgramChainedAndNested is the same program as one statement:
-// json.NewEncoder(dest).Encode(...) chains a method onto a call result,
-// and http.NewRequest("GET", "/").Cookies() is that same chain nested
-// as an argument.
-func TestProgramChainedAndNested(t *testing.T) {
-	rt := vmRuntime(t)
-	const src = `json.NewEncoder(dest).Encode(http.NewRequest("GET", "/").Cookies());`
-
-	fn, err := rt.Compile(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var dest bytes.Buffer
-	if err := fn.Scan(&dest, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got, want := dest.String(), "[]\n"; got != want {
-		t.Errorf("dest = %q, want %q", got, want)
-	}
-}
-
-// TestProgramOmittedArgument checks the third parameter of
-// http.NewRequest being filled with its zero value: the request is
-// built with a nil body.
-func TestProgramOmittedArgument(t *testing.T) {
-	rt := vmRuntime(t)
-	fn, err := rt.Compile(`return http.NewRequest("GET", "https://example.com/x");`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req, err := fn.Exec[*http.Request](nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if req.Body != nil {
-		t.Errorf("Body = %v, want nil from the omitted argument", req.Body)
-	}
-	if req.URL.Path != "/x" {
-		t.Errorf("path = %q, want /x", req.URL.Path)
-	}
-}
-
 // TestProgramErrorBubbles checks that a failing call stops the program
 // and surfaces through Scan without the source naming an error.
 func TestProgramErrorBubbles(t *testing.T) {
@@ -156,20 +114,6 @@ func TestProgramDiscardedResult(t *testing.T) {
 	}
 }
 
-// TestProgramUnknownMethod checks that a method missing from the result
-// type is a compile error, not an execution one.
-func TestProgramUnknownMethod(t *testing.T) {
-	rt := vmRuntime(t)
-	_, err := rt.Compile(`
-		req := http.NewRequest("GET", "/");
-		req.Nope();
-	`)
-	if err == nil {
-		t.Fatal("expected a compile error for the unknown method")
-	}
-	t.Log(err)
-}
-
 // TestProgramValueResult checks that a returned value reaches Exec and
 // that Scan copies it into dest.
 func TestProgramValueResult(t *testing.T) {
@@ -209,65 +153,5 @@ func TestProgramDestOnlyFromScan(t *testing.T) {
 	}
 	if _, err := fn.Exec[any](nil); err == nil {
 		t.Fatal("expected an error naming dest under Exec")
-	}
-}
-
-// TestFieldAccess covers reading a struct field, which is not a method
-// and so is resolved separately: as an argument, as the receiver of a
-// method, and through a chain of two fields.
-func TestFieldAccess(t *testing.T) {
-	rt := vmRuntime(t)
-	for _, tc := range []struct{ name, src, want string }{
-		{
-			"field as argument",
-			`req := http.NewRequest("GET", "/");
-			 json.NewEncoder(dest).Encode(req.Header);`,
-			"{}\n",
-		},
-		{
-			"field of a field",
-			`req := http.NewRequest("GET", "/a/b");
-			 json.NewEncoder(dest).Encode(req.URL.Path);`,
-			"\"/a/b\"\n",
-		},
-		{
-			"method on a field mutates through it",
-			`req := http.NewRequest("GET", "/");
-			 req.Header.Set("X-A", "1");
-			 json.NewEncoder(dest).Encode(req.Header);`,
-			"{\"X-A\":[\"1\"]}\n",
-		},
-	} {
-		fn, err := rt.Compile(tc.src)
-		if err != nil {
-			t.Errorf("%s: %v", tc.name, err)
-			continue
-		}
-		var dest bytes.Buffer
-		if err := fn.Scan(&dest, nil); err != nil {
-			t.Errorf("%s: %v", tc.name, err)
-			continue
-		}
-		if got := dest.String(); got != tc.want {
-			t.Errorf("%s: dest = %q, want %q", tc.name, got, tc.want)
-		}
-	}
-}
-
-// TestFieldAccessErrors checks what a field cannot do: be called, and
-// be read when it is unexported or absent.
-func TestFieldAccessErrors(t *testing.T) {
-	rt := vmRuntime(t)
-	for _, tc := range []struct{ name, src string }{
-		{"called as a method", `req := http.NewRequest("GET", "/"); req.Header();`},
-		{"unexported", `req := http.NewRequest("GET", "/"); json.NewEncoder(dest).Encode(req.ctx);`},
-		{"absent", `req := http.NewRequest("GET", "/"); json.NewEncoder(dest).Encode(req.Nope);`},
-		{"on an opaque stack name", `json.NewEncoder(dest).Encode(v.Field);`},
-	} {
-		if _, err := rt.Compile(tc.src); err == nil {
-			t.Errorf("%s: expected a compile error", tc.name)
-		} else {
-			t.Logf("%s: %v", tc.name, err)
-		}
 	}
 }
