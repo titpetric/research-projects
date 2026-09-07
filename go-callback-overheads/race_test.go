@@ -1,4 +1,4 @@
-package callbacks
+package gozero
 
 import (
 	"net/url"
