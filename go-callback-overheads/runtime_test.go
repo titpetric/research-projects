@@ -143,7 +143,7 @@ func TestCompileErrors(t *testing.T) {
 		"too many args":   `return NewRequest("GET", "https://example.com", body, "extra");`,
 		"int literal":     `return NewRequest(42, "https://example.com");`,
 		"float literal":   `return NewRequest(4.2, "https://example.com");`,
-		"no return":       `NewRequest("GET")`,
+		"same-line extra": `return NewRequest("GET") extra`,
 		"trailing input":  `return NewRequest("GET"); extra`,
 		"unterminated":    `return NewRequest("GET`,
 	} {

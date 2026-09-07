@@ -2,35 +2,49 @@ package callbacks
 
 import (
 	"fmt"
-	"strconv"
 )
 
-// Parser turns a program into a list of statements. The grammar has no
-// operators: a statement is a call, and every value is a literal, a
-// name, or the result of another call.
+// The grammar has no operators: a statement is a call, and every value
+// is a literal, a name, or the result of another call.
 //
 //	program := { stmt }
-//	stmt    := "var" name typeref ";"
-//	         | "return" [ arg ] ";"
-//	         | [ name { "," name } ( ":=" | "=" ) ] rhs ";"
+//	stmt    := "var" name typeref term
+//	         | "return" [ arg ] term
+//	         | [ name { "," name } ( ":=" | "=" ) ] rhs term
+//	term    := ";" | EOL | EOF
 //	rhs     := expr | string | number | "true" | "false" | "nil"
 //	typeref := { "*" | "[]" } path
 //	expr    := path "(" [ args ] ")" { "." ident "(" [ args ] ")" }
 //	path    := ident { "." ident }
 //	args    := arg { "," arg }
 //	arg     := string | number | path | expr
-//
-// A path is resolved by the compiler, not here. http.NewRequest is one
-// bound name, req.Cookies is a method on the value held by req, and
-// req.Header is a struct field on it; the parser cannot tell the three
-// apart without the bindings and the types.
-//
-// Strings are single- or double-quoted. Numbers map to int64 when they
-// have no decimal point and float64 when they do; no other numeric
-// types exist.
+
+// Parser turns a program into a list of statements. A path is resolved
+// by the compiler, not here: http.NewRequest is one bound name,
+// req.Cookies is a method on the value held by req, and req.Header is
+// a struct field on it; the parser cannot tell the three apart without
+// the bindings and the types. Strings are single- or double-quoted,
+// and numbers map to int64 without a decimal point and float64 with
+// one; no other numeric types exist.
 type Parser struct {
 	src string
 	pos int
+	// nl records that skipping whitespace crossed a newline since the
+	// last token byte was consumed, which is what lets the end of a
+	// line close a statement the way a semicolon does.
+	nl bool
+}
+
+// terminated consumes a statement end. The semicolon is a delimiter
+// between statements sharing a line, not something every line has to
+// carry: the end of the line and the end of the source both close a
+// statement.
+func (p *Parser) terminated() bool {
+	if p.consume(';') {
+		return true
+	}
+	p.skipSpace()
+	return p.pos >= len(p.src) || p.nl
 }
 
 type argKind int
@@ -165,15 +179,15 @@ func (p *Parser) stmt() (stmt, error) {
 		if err != nil {
 			return stmt{}, err
 		}
-		if !p.consume(';') {
-			return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+		if !p.terminated() {
+			return stmt{}, fmt.Errorf("parse: expected ';' or end of line at offset %d", p.pos)
 		}
 		return stmt{varName: name, varType: typ}, nil
 	}
 	if p.keyword("return") {
 		s := stmt{ret: true}
 		p.skipSpace()
-		if p.consume(';') {
+		if p.terminated() {
 			return s, nil
 		}
 		// The call form is tried first so "return f(x);" parses its
@@ -193,8 +207,8 @@ func (p *Parser) stmt() (stmt, error) {
 				s.retVal = &a
 			}
 		}
-		if !p.consume(';') {
-			return s, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+		if !p.terminated() {
+			return s, fmt.Errorf("parse: expected ';' or end of line at offset %d", p.pos)
 		}
 		return s, nil
 	}
@@ -217,8 +231,8 @@ func (p *Parser) stmt() (stmt, error) {
 				if a.kind == argVar || a.kind == argPath {
 					return stmt{}, fmt.Errorf("parse: cannot assign a name to a field at offset %d", p.pos)
 				}
-				if !p.consume(';') {
-					return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+				if !p.terminated() {
+					return stmt{}, fmt.Errorf("parse: expected ';' or end of line at offset %d", p.pos)
 				}
 				if a.kind == argCall {
 					return stmt{fieldLhs: path, call: a.sub}, nil
@@ -255,8 +269,8 @@ func (p *Parser) stmt() (stmt, error) {
 		case argVar, argPath:
 			return stmt{}, fmt.Errorf("parse: cannot assign a name to a name at offset %d", save)
 		default:
-			if !p.consume(';') {
-				return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+			if !p.terminated() {
+				return stmt{}, fmt.Errorf("parse: expected ';' or end of line at offset %d", p.pos)
 			}
 			return stmt{lhs: lhs, define: define, lit: &a}, nil
 		}
@@ -266,8 +280,8 @@ func (p *Parser) stmt() (stmt, error) {
 	if err != nil {
 		return stmt{}, err
 	}
-	if !p.consume(';') {
-		return stmt{}, fmt.Errorf("parse: expected ';' at offset %d", p.pos)
+	if !p.terminated() {
+		return stmt{}, fmt.Errorf("parse: expected ';' or end of line at offset %d", p.pos)
 	}
 	return stmt{lhs: lhs, define: define, call: call}, nil
 }
@@ -446,184 +460,4 @@ func (p *Parser) arg() (arg, error) {
 		}
 		return arg{kind: argVar, str: path[0]}, nil
 	}
-}
-
-func joinPath(path []string) string {
-	out := ""
-	for i, s := range path {
-		if i > 0 {
-			out += "."
-		}
-		out += s
-	}
-	return out
-}
-
-func (p *Parser) stringLit(quote byte) (arg, error) {
-	p.pos++ // opening quote
-	start := p.pos
-	for p.pos < len(p.src) {
-		switch p.src[p.pos] {
-		case quote:
-			// No escapes: the literal is a substring of the source,
-			// zero-copy.
-			lit := p.src[start:p.pos]
-			p.pos++
-			return arg{kind: argString, str: lit}, nil
-		case '\\':
-			return p.stringLitEscaped(quote, start)
-		}
-		p.pos++
-	}
-	return arg{}, fmt.Errorf("parse: unterminated string at offset %d", p.pos)
-}
-
-// stringLitEscaped is the slow path taken at the first backslash: the
-// literal needs unescaping into a buffer.
-func (p *Parser) stringLitEscaped(quote byte, start int) (arg, error) {
-	buf := append([]byte(nil), p.src[start:p.pos]...)
-	for p.pos < len(p.src) {
-		c := p.src[p.pos]
-		switch c {
-		case quote:
-			p.pos++
-			return arg{kind: argString, str: string(buf)}, nil
-		case '\\':
-			if p.pos+1 >= len(p.src) {
-				return arg{}, fmt.Errorf("parse: unterminated escape at offset %d", p.pos)
-			}
-			p.pos++
-			// The named escapes are interpreted; an unrecognised one is
-			// an error rather than the backslash being dropped, which
-			// silently turned "a\nb" into "anb".
-			switch e := p.src[p.pos]; e {
-			case 'n':
-				buf = append(buf, '\n')
-			case 't':
-				buf = append(buf, '\t')
-			case 'r':
-				buf = append(buf, '\r')
-			case '\\', '"', '\'':
-				buf = append(buf, e)
-			default:
-				return arg{}, fmt.Errorf("parse: unknown escape \\%c at offset %d", e, p.pos)
-			}
-		default:
-			buf = append(buf, c)
-		}
-		p.pos++
-	}
-	return arg{}, fmt.Errorf("parse: unterminated string at offset %d", p.pos)
-}
-
-func (p *Parser) numberLit() (arg, error) {
-	start := p.pos
-	if p.src[p.pos] == '-' {
-		p.pos++
-	}
-	float := false
-	for p.pos < len(p.src) {
-		c := p.src[p.pos]
-		if c == '.' && !float {
-			float = true
-			p.pos++
-			continue
-		}
-		if c < '0' || c > '9' {
-			break
-		}
-		p.pos++
-	}
-	lit := p.src[start:p.pos]
-	if float {
-		f, err := strconv.ParseFloat(lit, 64)
-		if err != nil {
-			return arg{}, fmt.Errorf("parse: bad float %q: %w", lit, err)
-		}
-		return arg{kind: argFloat, f: f}, nil
-	}
-	i, err := strconv.ParseInt(lit, 10, 64)
-	if err != nil {
-		return arg{}, fmt.Errorf("parse: bad int %q: %w", lit, err)
-	}
-	return arg{kind: argInt, i: i}, nil
-}
-
-func (p *Parser) keyword(kw string) bool {
-	p.skipSpace()
-	end := p.pos + len(kw)
-	if end > len(p.src) || p.src[p.pos:end] != kw {
-		return false
-	}
-	if end < len(p.src) && isIdentChar(p.src[end]) {
-		return false
-	}
-	p.pos = end
-	return true
-}
-
-func (p *Parser) ident() string {
-	p.skipSpace()
-	start := p.pos
-	for p.pos < len(p.src) && isIdentChar(p.src[p.pos]) {
-		p.pos++
-	}
-	return p.src[start:p.pos]
-}
-
-func (p *Parser) consume(c byte) bool {
-	p.skipSpace()
-	if p.pos < len(p.src) && p.src[p.pos] == c {
-		p.pos++
-		return true
-	}
-	return false
-}
-
-func (p *Parser) consumeStr(s string) bool {
-	p.skipSpace()
-	end := p.pos + len(s)
-	if end > len(p.src) || p.src[p.pos:end] != s {
-		return false
-	}
-	p.pos = end
-	return true
-}
-
-// peek returns the next non-space byte without consuming it, or 0 at
-// the end of the source.
-func (p *Parser) peek() byte {
-	save := p.pos
-	p.skipSpace()
-	c := byte(0)
-	if p.pos < len(p.src) {
-		c = p.src[p.pos]
-	}
-	p.pos = save
-	return c
-}
-
-func (p *Parser) skipSpace() {
-	for p.pos < len(p.src) {
-		switch p.src[p.pos] {
-		case ' ', '\t', '\n', '\r':
-			p.pos++
-		case '/':
-			// A line comment runs to the newline. There is no block
-			// form.
-			if p.pos+1 >= len(p.src) || p.src[p.pos+1] != '/' {
-				return
-			}
-			for p.pos < len(p.src) && p.src[p.pos] != '\n' {
-				p.pos++
-			}
-		default:
-			return
-		}
-	}
-}
-
-func isIdentChar(c byte) bool {
-	return c == '_' ||
-		(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }

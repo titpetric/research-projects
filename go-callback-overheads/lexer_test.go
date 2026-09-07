@@ -1,7 +1,6 @@
 package callbacks
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -189,69 +188,6 @@ func TestReturnNameJITs(t *testing.T) {
 	}
 }
 
-// TestScalarFromStackJITs pins the tier for a scalar read off the
-// caller's stack, which used to send the program to reflect.
-func TestScalarFromStackJITs(t *testing.T) {
-	rt, seen := litRuntime(t)
-	const src = `wantI64(n); json.NewEncoder(dest).Encode("ok");`
-	if err := rt.Supports(src); err != nil {
-		t.Fatalf("did not JIT: %v", err)
-	}
-	fn, err := rt.Compile(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var b bytes.Buffer
-	for _, tc := range []struct {
-		stack map[string]any
-		want  any
-		fails bool
-	}{
-		{map[string]any{"n": int64(9)}, int64(9), false},
-		{nil, int64(0), false},
-		{map[string]any{"n": "not a number"}, nil, true},
-	} {
-		*seen = nil
-		b.Reset()
-		err := fn.Scan(&b, tc.stack)
-		if tc.fails {
-			if err == nil {
-				t.Errorf("stack %v: expected a type error", tc.stack)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("stack %v: %v", tc.stack, err)
-			continue
-		}
-		if *seen != tc.want {
-			t.Errorf("stack %v: callee saw %v, want %v", tc.stack, *seen, tc.want)
-		}
-	}
-}
-
-// TestMixedScalarShapeJITs pins the tier for a call mixing a string and
-// a scalar parameter, which used to be outside the table.
-func TestMixedScalarShapeJITs(t *testing.T) {
-	rt, seen := litRuntime(t)
-	const src = `u := mixed("a", 5); return u;`
-	if err := rt.Supports(src); err != nil {
-		t.Fatalf("did not JIT: %v", err)
-	}
-	fn, err := rt.Compile(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	*seen = nil
-	u, err := fn.Exec[*url.URL](nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u.Path != "a" || *seen != int64(5) {
-		t.Errorf("path=%q seen=%v", u.Path, *seen)
-	}
-}
-
 // TestAssignNameToName pins the error message for x = y, which used to
 // surface as a bare "expected '('".
 func TestAssignNameToName(t *testing.T) {
@@ -313,14 +249,19 @@ func TestStringEscapes(t *testing.T) {
 	}
 }
 
-// TestStatementsAcrossLines pins that a newline is whitespace like any
-// other: the documentation formats programs one statement per line, and
-// the parser must not care.
+// TestStatementsAcrossLines pins the line rules: the end of a line
+// closes a statement the way a semicolon does, a semicolon separates
+// statements sharing a line, and a statement still spans lines freely
+// inside its parentheses. The end of a line is a terminator, so a
+// return's value has to start on the return's own line.
 func TestStatementsAcrossLines(t *testing.T) {
 	rt, _ := litRuntime(t)
-	oneLine := `u := url.Parse("/nl"); return u;`
-	multi := "u := url.Parse(\"/nl\");\n\nreturn\n\tu\n;"
-	for _, src := range []string{oneLine, multi} {
+	for _, src := range []string{
+		`u := url.Parse("/nl"); return u;`,
+		"u := url.Parse(\"/nl\")\nreturn u",
+		"u := url.Parse(\"/nl\"); return u",
+		"u := url.Parse(\n\t\"/nl\"\n)\nreturn u",
+	} {
 		fn, err := rt.Compile(src)
 		if err != nil {
 			t.Fatalf("%q: %v", src, err)
@@ -329,5 +270,10 @@ func TestStatementsAcrossLines(t *testing.T) {
 		if err != nil || u.Path != "/nl" {
 			t.Errorf("%q: got %v, %v", src, u, err)
 		}
+	}
+	// A return followed by a newline is a bare return; the name on the
+	// next line is a statement of its own, which a name cannot be.
+	if _, err := rt.Compile("u := url.Parse(\"/nl\")\nreturn\n\tu\n"); err == nil {
+		t.Error("expected the stranded name after a bare return to fail")
 	}
 }

@@ -34,6 +34,9 @@ func TestParser_Parse(t *testing.T) {
 		"assignment":    {`req := f("GET"); return req;`, 2},
 		"var and field": {`var r *http.Request; r.Method = "POST"; return r;`, 3},
 		"dotted path":   {`return json.NewEncoder(dest).Encode(v);`, 1},
+		"no semicolons": {"req := f(\"GET\")\nreturn req", 2},
+		"mixed lines":   {"a := f(\"x\"); b := f(\"y\")\nreturn b", 3},
+		"bare return":   {"f(\"GET\")\nreturn", 2},
 	} {
 		prog, err := (&Parser{}).Parse(tc.src)
 		if err != nil {
