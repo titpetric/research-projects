@@ -38,7 +38,6 @@ jobs:
     desc: Format the module
     steps:
       - run: splint --fix ./...
-      - run: go mod tidy
 
   lint:
     desc: Vet
