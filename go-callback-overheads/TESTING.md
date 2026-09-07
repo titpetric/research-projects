@@ -98,19 +98,29 @@ on the direct-call tier. Pinned core, inlining disabled:
 
 | fixture | vm | native | ratio |
 |---|---|---|---|
-| fmt | 2.0us, 8 allocs | 1.1us, 4 | 1.8x |
+| fmt | 2.0us, 7 allocs | 1.2us, 4 | 1.7x |
 | http | 3.6us, 9 allocs | 3.1us, 9 | 1.2x |
-| json | 5.3us, 17 allocs | 4.4us, 16 | 1.2x |
-| types | 2.8us, 10 allocs | 1.6us, 4 | 1.8x |
-| url | 6.0us, 15 allocs | 4.9us, 14 | 1.2x |
-| variadic | 1.0us, 4 allocs | 0.6us, 3 | 1.6x |
+| json | 5.1us, 17 allocs | 4.3us, 16 | 1.2x |
+| types | 2.6us, 9 allocs | 1.6us, 4 | 1.7x |
+| url | 5.6us, 15 allocs | 4.9us, 14 | 1.1x |
+| variadic | 0.9us, 4 allocs | 0.6us, 3 | 1.6x |
 
 http reaches allocation parity with its mirror; json, url and variadic
 are within one allocation, which is the frame. The fixtures that lean
 on formatting and assertion plumbing sit under 2x. For the bridge cost
 of a call the shape table cannot express, and for the work-only
 comparison without assertions, see the benchmarks in
-`fixture_bench_test.go`.
+`fixture_bench_test.go`. For how these numbers move when inlining is
+enabled, which is what a caller sees, see `inline-behaviour.md`.
+
+Two details of the direct tier show up in these columns. A scalar
+whose bits fit a byte boxes into a static cell rather than a fresh
+one, the trick runtime.staticuint64s plays, which is one allocation
+off fmt and types. A stack name the program reads more than once, tb
+in every fixture, is loaded into a hidden frame field once when the
+program starts; each use is then an offset read instead of a map
+lookup, so a binding that mutates the stack mid-run is not seen by
+later uses of the same name.
 
 ## Structs by value
 
