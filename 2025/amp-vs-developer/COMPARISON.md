@@ -6,46 +6,46 @@ Cross-project metrics analysis across all workspace modules, measured using recu
 
 Shows the percentage of exported symbols covered by tests. Covered count includes all symbols matched to test functions; Uncovered count shows symbols without test coverage. Standalone Tests are test functions with no matching symbol. Total Symbols is the sum of covered and uncovered.
 
-| Project | Coverage % | Covered | Uncovered | Standalone Tests | Total Symbols |
-|---------|---|---|---|---|---|
-| etl | 5% | 131 | 146 | 124 | 277 |
-| lessgo | 1% | 49 | 232 | 44 | 281 |
-| mig | 5% | 3 | 41 | 1 | 44 |
-| platform-app | 1% | 6 | 411 | 2 | 417 |
-| platform-maillist | 0% | 0 | 55 | 0 | 55 |
-| platform | 18% | 24 | 65 | 7 | 89 |
-| vuego | 32% | 163 | 84 | 50 | 247 |
-| yamlexpr | 41% | 122 | 57 | 20 | 179 |
+| Project           | Coverage % | Covered | Uncovered | Standalone Tests | Total Symbols |
+|-------------------|------------|---------|-----------|------------------|---------------|
+| etl               | 5%         | 131     | 146       | 124              | 277           |
+| lessgo            | 1%         | 49      | 232       | 44               | 281           |
+| mig               | 5%         | 3       | 41        | 1                | 44            |
+| platform-app      | 1%         | 6       | 411       | 2                | 417           |
+| platform-maillist | 0%         | 0       | 55        | 0                | 55            |
+| platform          | 18%        | 24      | 65        | 7                | 89            |
+| vuego             | 32%        | 163     | 84        | 50               | 247           |
+| yamlexpr          | 41%        | 122     | 57        | 20               | 179           |
 
 ## File-Test Pairing (File Organization)
 
 Measures how many implementation files (.go) have corresponding test files (*_test.go). Paired files are counted when both exist; Unpaired Files and Unpaired Tests indicate orphaned code.
 
-| Project | Files | Tests | Paired | Unpaired Files | Unpaired Tests |
-|---------|---|---|---|---|---|
-| etl | 69 | 20 | 15 | 54 | 5 |
-| lessgo | 40 | 15 | 12 | 28 | 3 |
-| mig | 35 | 3 | 3 | 32 | 0 |
-| platform-app | 63 | 8 | 8 | 55 | 0 |
-| platform-maillist | 6 | 0 | 0 | 6 | 0 |
-| platform | 38 | 18 | 18 | 20 | 0 |
-| vuego | 35 | 33 | 23 | 12 | 10 |
-| yamlexpr | 23 | 17 | 14 | 9 | 3 |
+| Project           | Files | Tests | Paired | Unpaired Files | Unpaired Tests |
+|-------------------|-------|-------|--------|----------------|----------------|
+| etl               | 69    | 20    | 15     | 54             | 5              |
+| lessgo            | 40    | 15    | 12     | 28             | 3              |
+| mig               | 35    | 3     | 3      | 32             | 0              |
+| platform-app      | 63    | 8     | 8      | 55             | 0              |
+| platform-maillist | 6     | 0     | 0      | 6              | 0              |
+| platform          | 38    | 18    | 18     | 20             | 0              |
+| vuego             | 35    | 33    | 23     | 12             | 10             |
+| yamlexpr          | 23    | 17    | 14     | 9              | 3              |
 
 ## File Pairing Ratio
 
 Percentage of implementation files paired with test files. Calculated as (paired / total implementation files) × 100.
 
-| Project | Pairing % | Paired/Total | Unpaired Count |
-|---------|---|---|---|
-| etl | 21% | 15/69 | 59 |
-| lessgo | 30% | 12/40 | 31 |
-| mig | 8% | 3/35 | 32 |
-| platform-app | 12% | 8/63 | 55 |
-| platform-maillist | 0% | 0/6 | 6 |
-| platform | 47% | 18/38 | 20 |
-| vuego | 65% | 23/35 | 22 |
-| yamlexpr | 60% | 14/23 | 12 |
+| Project           | Pairing % | Paired/Total | Unpaired Count |
+|-------------------|-----------|--------------|----------------|
+| etl               | 21%       | 15/69        | 59             |
+| lessgo            | 30%       | 12/40        | 31             |
+| mig               | 8%        | 3/35         | 32             |
+| platform-app      | 12%       | 8/63         | 55             |
+| platform-maillist | 0%        | 0/6          | 6              |
+| platform          | 47%       | 18/38        | 20             |
+| vuego             | 65%       | 23/35        | 22             |
+| yamlexpr          | 60%       | 14/23        | 12             |
 
 ## Aggregate Metrics Across All Projects
 
@@ -93,5 +93,4 @@ Projects with the lowest test coverage, ordered by coverage ratio.
 
 ---
 
-Generated: Fri Dec 12 22:07:06 CET 2025
-Source: Gofsck analysis reports (recursive package scanning)
+Generated: Fri Dec 12 22:07:06 CET 2025 Source: Gofsck analysis reports (recursive package scanning)
